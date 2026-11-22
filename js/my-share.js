@@ -12,7 +12,17 @@
     const net = netLabel(mine.netAmt);
     $("stat-paid").textContent = formatMoney(mine.paidAmt);
     $("stat-share").textContent = formatMoney(mine.shareAmt);
-    $("stat-net").textContent = net.text;
+    const netLabelEl = $("stat-net-label");
+    if (Math.abs(mine.netAmt) < 0.005) {
+      if (netLabelEl) netLabelEl.textContent = "My balance";
+      $("stat-net").textContent = "Settled up";
+    } else if (mine.netAmt > 0) {
+      if (netLabelEl) netLabelEl.textContent = "You'll get";
+      $("stat-net").textContent = formatMoney(mine.netAmt);
+    } else {
+      if (netLabelEl) netLabelEl.textContent = "You owe";
+      $("stat-net").textContent = formatMoney(Math.abs(mine.netAmt));
+    }
     $("stat-net-card").className = "card stat " + net.cls;
     if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", mine);
 

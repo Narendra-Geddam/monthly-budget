@@ -16,7 +16,17 @@
     const net = netLabel(row.netAmt);
     $("stat-paid").textContent = formatMoney(row.paidAmt);
     $("stat-share").textContent = formatMoney(row.shareAmt);
-    $("stat-net").textContent = net.text;
+    const netLabelEl = $("stat-net-label");
+    if (Math.abs(row.netAmt) < 0.005) {
+      if (netLabelEl) netLabelEl.textContent = "Balance";
+      $("stat-net").textContent = "Settled up";
+    } else if (row.netAmt > 0) {
+      if (netLabelEl) netLabelEl.textContent = "Gets back";
+      $("stat-net").textContent = formatMoney(row.netAmt);
+    } else {
+      if (netLabelEl) netLabelEl.textContent = "Owes";
+      $("stat-net").textContent = formatMoney(Math.abs(row.netAmt));
+    }
     $("stat-net-card").className = "card stat " + net.cls;
     if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", row);
     const paid = expenses.filter((e) => e.paid_by === id);
