@@ -139,6 +139,8 @@
     arrowIn: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M16 8 8 16M14 16H8v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     wa: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 19 6.2 15.4A7.5 7.5 0 1 1 8.6 17.8L5 19Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 9.6c.2-.5.3-.5.6-.5h.5c.2 0 .4.1.5.4l.5 1.2c.1.2 0 .4-.1.6l-.4.5c-.1.1-.1.3 0 .4.3.6.8 1.1 1.4 1.4.2.1.3.1.4 0l.5-.4c.2-.2.4-.2.6-.1l1.2.5c.3.1.4.3.4.5v.5c0 .3 0 .4-.5.6A5 5 0 0 1 11 14.8 5.8 5.8 0 0 1 9.2 9.6Z" fill="currentColor"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    close: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M6.1 17.9l1.6-1.6M16.3 7.7l1.6-1.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   };
 
   const PAGES = [
@@ -317,11 +319,24 @@
   function memberBalances(members, expenses, splits, settlements) {
     const map = new Map();
     members.forEach((m) => {
-      map.set(m.id, { id: m.id, name: m.display_name || "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, avatar_url: m.avatar_url });
+      map.set(m.id, { id: m.id, name: m.display_name || "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, avatar_url: m.avatar_url, pendingFrom: [], pendingTo: [] });
     });
     const ensure = (id) => {
-      if (!map.has(id)) map.set(id, { id, name: "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0 });
+      if (!map.has(id)) map.set(id, { id, name: "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, pendingFrom: [], pendingTo: [] });
       return map.get(id);
+    };
+    const addPending = (list, id, name, cents) => {
+      const row = list.find((x) => x.id === id);
+      if (row) row.amount += cents;
+      else list.push({ id, name, amount: cents });
+    };
+    const settlementConfirmed = (s) => {
+      const st = String(s && s.status || "").toLowerCase();
+      if (st === "pending" || st === "cancelled" || st === "canceled" || st === "declined" || st === "rejected") return false;
+      if (st === "confirmed" || st === "received" || st === "completed") return true;
+      if (s && s.confirmed_at) return true;
+      // Legacy rows with no status were treated as confirmed payments.
+      return !st;
     };
     const expenseById = new Map((expenses || []).map((e) => [e.id, e]));
     expenses.forEach((e) => { ensure(e.paid_by).paid += toCents(e.amount); });
@@ -333,13 +348,17 @@
         if (exp) ensure(exp.paid_by).collected += cents;
       } else if (s.status === "pending") {
         if (exp && exp.paid_by !== s.user_id) {
-          ensure(exp.paid_by).pendingIn += cents;
-          ensure(s.user_id).pendingOut += cents;
+          const payer = ensure(exp.paid_by);
+          const debtor = ensure(s.user_id);
+          payer.pendingIn += cents;
+          debtor.pendingOut += cents;
+          addPending(payer.pendingFrom, debtor.id, debtor.name, cents);
+          addPending(debtor.pendingTo, payer.id, payer.name, cents);
         }
       }
     });
     settlements.forEach((s) => {
-      if (s.status && s.status !== "confirmed") return;
+      if (!settlementConfirmed(s)) return;
       ensure(s.from_user).sent += toCents(s.amount);
       ensure(s.to_user).received += toCents(s.amount);
     });
@@ -356,21 +375,40 @@
     }
     return Array.from(map.values());
   }
+  function andNames(names) {
+    const list = (names || []).filter(Boolean);
+    if (!list.length) return "Someone";
+    if (list.length === 1) return list[0];
+    if (list.length === 2) return list[0] + " and " + list[1];
+    return list.slice(0, -1).join(", ") + ", and " + list[list.length - 1];
+  }
   function balanceFootnote(row) {
     if (!row) return "";
     const parts = [];
-    if ((row.pendingInAmt || 0) > 0.004) parts.push(formatMoney(row.pendingInAmt) + " more pending acceptance");
-    if ((row.pendingOutAmt || 0) > 0.004) parts.push(formatMoney(row.pendingOutAmt) + " of your shares still waiting");
+    const pendingFrom = row.pendingFrom || [];
+    const pendingTo = row.pendingTo || [];
+    if ((row.pendingInAmt || 0) > 0.004) {
+      if (pendingFrom.length === 1) {
+        parts.push(pendingFrom[0].name + " hasn't accepted " + formatMoney(fromCents(pendingFrom[0].amount)) + " yet");
+      } else if (pendingFrom.length) {
+        parts.push(andNames(pendingFrom.map((p) => p.name)) + " haven't accepted " + formatMoney(row.pendingInAmt) + " yet");
+      } else {
+        parts.push(formatMoney(row.pendingInAmt) + " still waiting to be accepted");
+      }
+    }
+    if ((row.pendingOutAmt || 0) > 0.004) {
+      parts.push("Your " + formatMoney(row.pendingOutAmt) + " share hasn't been accepted yet");
+    }
+    // Only confirmed settlements count as money already received or paid.
     if ((row.receivedAmt || 0) > 0.004 && (row.sentAmt || 0) > 0.004) {
-      parts.push("after " + formatMoney(row.receivedAmt) + " received and " + formatMoney(row.sentAmt) + " already paid");
+      parts.push("After " + formatMoney(row.receivedAmt) + " already received and " + formatMoney(row.sentAmt) + " already paid");
     } else if ((row.receivedAmt || 0) > 0.004) {
-      parts.push("after " + formatMoney(row.receivedAmt) + " already received");
+      parts.push("After " + formatMoney(row.receivedAmt) + " already received");
     } else if ((row.sentAmt || 0) > 0.004) {
-      parts.push("after " + formatMoney(row.sentAmt) + " already paid to roommates");
+      parts.push("After " + formatMoney(row.sentAmt) + " already paid to roommates");
     }
     if (!parts.length) return "";
-    const text = parts.join(". ");
-    return text.charAt(0).toUpperCase() + text.slice(1) + (text.endsWith(".") ? "" : ".");
+    return parts.map((p) => p.endsWith(".") ? p : p + ".").join(" ");
   }
   function paintBalanceNote(id, row) {
     const el = $(id);
@@ -816,8 +854,8 @@
           </div>`;
       } else {
       header.innerHTML = `
-        <a class="top-avatar" href="profile.html" id="header-profile" aria-label="Profile" title="Profile">${avatarHtml({ display_name: (profile && profile.display_name) || "You", avatar_url: profile && profile.avatar_url, id: uid() }, "avatar-row")}</a>
         <a class="brand" href="dashboard.html" title="Monthly Budget home">
+          <img class="brand-logo" src="${withBase("favicon.svg")}" width="32" height="32" alt="" />
           <div class="brand-text">
             <p class="brand-kicker">Monthly Budget</p>
             <h1 id="room-name" class="room-name">Monthly Budget</h1>
@@ -827,6 +865,7 @@
           ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
         </nav>
         <div class="top-actions">
+          <a class="top-avatar" href="profile.html" id="header-profile" aria-label="Profile" title="Profile">${avatarHtml({ display_name: (profile && profile.display_name) || "You", avatar_url: profile && profile.avatar_url, id: uid() }, "avatar-row")}</a>
           <a class="icon-btn pill-btn requests-link" href="notifications.html" aria-label="Notifications" title="Notifications">
             ${ICONS.bell}<span class="badge" data-notif-badge hidden></span>
           </a>
@@ -900,35 +939,88 @@
     $("month-input").addEventListener("change", (e) => go(e.target.value));
   }
 
+  let moreSheetPushed = false;
+  function moreRow(href, icon, label, badgeAttr) {
+    return `<a class="sheet-row" href="${href}">
+      <span class="sheet-icon" aria-hidden="true">${icon}</span>
+      <span class="sheet-label">${label}</span>
+      ${badgeAttr ? `<span class="badge" ${badgeAttr} hidden></span>` : ""}
+      <span class="sheet-chevron" aria-hidden="true">${ICONS.chevron}</span>
+    </a>`;
+  }
+  function hideFabMenu() {
+    const root = document.getElementById("fab-root");
+    const scrim = document.getElementById("fab-scrim");
+    const btn = document.getElementById("fab-btn");
+    const dial = document.getElementById("fab-dial");
+    if (root) root.classList.remove("is-open");
+    if (dial) dial.hidden = true;
+    if (scrim) scrim.hidden = true;
+    if (btn) btn.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("fab-menu-open");
+  }
+  function onMoreKeydown(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMoreSheet();
+    }
+  }
+  function onMorePopState() {
+    closeMoreSheet({ fromPop: true });
+  }
   function openMoreSheet() {
-    closeMoreSheet();
+    closeMoreSheet({ skipHistory: true });
+    hideFabMenu();
     const back = document.createElement("div");
     back.className = "sheet-backdrop";
     back.id = "more-sheet";
-    back.innerHTML = `<div class="sheet" role="dialog" aria-label="More options">
-      <p class="sheet-title">More</p>
-      <a href="analytics.html">Analytics</a>
-      <a href="members.html">Members</a>
-      <a href="notifications.html">Notifications <span class="badge" data-notif-badge hidden></span></a>
-      <a href="my-share.html">My share</a>
-      <a href="settle.html">Settle up</a>
-      <a href="requests.html">Share requests <span class="badge" data-pending-badge hidden></span></a>
-      <a href="room.html">Room &amp; invite</a>
-      <a href="room-settings.html">Room settings</a>
-      <a href="expenses.html">All expenses</a>
-      <a href="profile.html">Profile</a>
-      <button type="button" class="sheet-link" id="sheet-close">Close</button>
+    back.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="more-sheet-title">
+      <header class="sheet-head">
+        <p class="sheet-title" id="more-sheet-title">More</p>
+        <button type="button" class="sheet-close" id="sheet-close" aria-label="Close">${ICONS.close}</button>
+      </header>
+      <nav class="sheet-list">
+        ${moreRow("analytics.html", ICONS.chart, "Analytics")}
+        ${moreRow("members.html", ICONS.users, "Members")}
+        ${moreRow("notifications.html", ICONS.bell, "Notifications", "data-notif-badge")}
+        ${moreRow("my-share.html", ICONS.wallet, "My share")}
+        ${moreRow("settle.html", ICONS.arrowIn, "Settle up")}
+        ${moreRow("requests.html", ICONS.list, "Share requests", "data-pending-badge")}
+        ${moreRow("room.html", ICONS.home, "Room &amp; invite")}
+        ${moreRow("room-settings.html", ICONS.gear, "Room settings")}
+        ${moreRow("expenses.html", ICONS.list, "All expenses")}
+        ${moreRow("profile.html", ICONS.user, "Profile")}
+      </nav>
     </div>`;
     back.addEventListener("click", (e) => { if (e.target === back) closeMoreSheet(); });
     document.body.appendChild(back);
+    document.body.classList.add("more-sheet-open");
     setPendingBadge(pendingCount);
-    setNotifBadge(document.querySelector("[data-notif-badge]") ? (document.querySelector("[data-notif-badge]").textContent || 0) : 0);
     loadUnreadCount().then(setNotifBadge).catch(() => {});
-    $("sheet-close").addEventListener("click", closeMoreSheet);
+    const closeBtn = $("sheet-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closeMoreSheet);
+      try { closeBtn.focus(); } catch (err) { /* ignore */ }
+    }
+    window.addEventListener("keydown", onMoreKeydown);
+    window.addEventListener("popstate", onMorePopState);
+    if (!moreSheetPushed) {
+      try { history.pushState({ mbMore: 1 }, ""); moreSheetPushed = true; } catch (err) { moreSheetPushed = false; }
+    }
   }
-  function closeMoreSheet() {
+  function closeMoreSheet(opts) {
+    opts = opts || {};
     const el = $("more-sheet");
     if (el) el.remove();
+    document.body.classList.remove("more-sheet-open");
+    window.removeEventListener("keydown", onMoreKeydown);
+    window.removeEventListener("popstate", onMorePopState);
+    if (moreSheetPushed && !opts.fromPop && !opts.skipHistory) {
+      moreSheetPushed = false;
+      try { if (history.state && history.state.mbMore) history.back(); } catch (err) { /* ignore */ }
+    } else {
+      moreSheetPushed = false;
+    }
   }
 
   function showPageError(message) {
@@ -1294,6 +1386,20 @@
     for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
     return Math.abs(h) % 360;
   }
+  const AVATAR_PALETTE = [
+    { bg: "#163300", fg: "#9FE870" },
+    { bg: "#2F5711", fg: "#F3F7EE" },
+    { bg: "#1A3A0C", fg: "#D8F5B8" },
+    { bg: "#3F6212", fg: "#F3F7EE" },
+    { bg: "#245018", fg: "#E8F6D8" },
+    { bg: "#0F2410", fg: "#9FE870" },
+    { bg: "#4D7C0F", fg: "#F7FEE7" },
+    { bg: "#365314", fg: "#ECFCCB" },
+  ];
+  function avatarSwatch(id) {
+    const hue = avatarHue(id);
+    return AVATAR_PALETTE[hue % AVATAR_PALETTE.length];
+  }
   function memberRecord(id, members) {
     if (id && profile && id === uid()) {
       const fromList = (members || []).find((m) => m.id === id) || {};
@@ -1312,8 +1418,8 @@
     const name = p.display_name || p.name || p.actor_name || "?";
     const url = avatarUrlOf(p);
     const klass = "avatar " + (cls || "avatar-row");
-    const hue = avatarHue(p.id || p.user_id || p.actor_id || name);
-    const style = `--avatar-hue:${hue}`;
+    const sw = avatarSwatch(p.id || p.user_id || p.actor_id || name);
+    const style = `--avatar-bg:${sw.bg};--avatar-fg:${sw.fg};background:${sw.bg};color:${sw.fg}`;
     if (url) {
       return `<span class="${klass}" style="${style}"><img src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async" /></span>`;
     }
@@ -1623,7 +1729,7 @@
     memberBalances, settleSuggestions, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
     friendlyDate, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
-    memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue,
+    memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge,
     isAdmin, isOwner, roleLabel, roomCategories, loadUnreadCount, setNotifBadge,

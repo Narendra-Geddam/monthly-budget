@@ -24,14 +24,35 @@
 
     $("stat-income").textContent = formatMoney(income);
     $("stat-spent").textContent = formatMoney(spent);
-    $("stat-left").textContent = formatMoney(income - spent);
-    $("stat-net-card").className = "stat " + (income - spent >= 0 ? "is-good" : "is-bad");
 
     const { data: profile } = await MB.client().from("profiles").select("personal_budget_limit").eq("id", ctx.uid).maybeSingle();
     const limit = profile && profile.personal_budget_limit != null ? Number(profile.personal_budget_limit) : 0;
     $("per-limit").value = limit > 0 ? String(limit) : "";
     const { data: catLimits } = await MB.client().from("personal_category_budgets").select("category, limit_amount").eq("user_id", ctx.uid);
     const limits = catLimits || [];
+
+    const basis = income > 0 ? income : (limit > 0 ? limit : null);
+    const leftCard = $("stat-net-card");
+    const leftVal = $("stat-left");
+    const leftLabel = leftCard ? leftCard.querySelector(".label") : null;
+    const grid = leftCard && leftCard.closest(".summary-grid");
+    if (basis == null) {
+      if (leftCard) leftCard.hidden = true;
+      if (grid) grid.classList.add("is-two");
+    } else {
+      if (leftCard) leftCard.hidden = false;
+      if (grid) grid.classList.remove("is-two");
+      const leftover = basis - spent;
+      if (leftover >= 0) {
+        if (leftLabel) leftLabel.textContent = "Left";
+        if (leftVal) leftVal.textContent = formatMoney(leftover);
+        if (leftCard) leftCard.className = "stat is-good";
+      } else {
+        if (leftLabel) leftLabel.textContent = "Over by";
+        if (leftVal) leftVal.textContent = formatMoney(-leftover);
+        if (leftCard) leftCard.className = "stat is-bad is-over";
+      }
+    }
 
     if (limit > 0) {
       const pct = Math.round((spent / limit) * 100);

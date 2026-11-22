@@ -41,8 +41,12 @@
     preview.innerHTML = ctx.profile.avatar_url
       ? `<img src="${escapeHtml(ctx.profile.avatar_url)}" alt="" loading="lazy">`
       : escapeHtml(MB.initials(fallbackName));
-    if (!ctx.profile.avatar_url && MB.avatarHue) {
-      preview.style.setProperty("--avatar-hue", String(MB.avatarHue(ctx.uid || fallbackName)));
+    if (!ctx.profile.avatar_url && MB.avatarSwatch) {
+      const sw = MB.avatarSwatch(ctx.uid || fallbackName);
+      preview.style.setProperty("--avatar-bg", sw.bg);
+      preview.style.setProperty("--avatar-fg", sw.fg);
+      preview.style.background = sw.bg;
+      preview.style.color = sw.fg;
     }
     if (ctx.profile.avatar_url) preview.className = "avatar avatar-lg";
     $("profile-avatar").addEventListener("change", async (ev) => {
