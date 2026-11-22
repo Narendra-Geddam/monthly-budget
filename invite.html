@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="You're invited to join a roommate budget room on Monthly Budget." />
-  <meta name="theme-color" content="#1C1917" />
+  <meta name="theme-color" content="#0B1914" />
   <meta name="color-scheme" content="dark light" />
   <title>You're invited · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Monthly Budget" />
   <meta property="og:title" content="You're invited to join a room on Monthly Budget" />
@@ -52,7 +52,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+        if (m) m.setAttribute("content", t === "light" ? "#E6F7F0" : "#0B1914");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>

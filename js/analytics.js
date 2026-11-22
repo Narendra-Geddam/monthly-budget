@@ -21,13 +21,16 @@
   const legend = { labels: { color: "#e6edf3", boxWidth: 12 } };
 
   function highlightBars(values) {
-    if (!values.length) return values.map(() => "#F97316");
+    const accent = MB.cssToken("--accent", "#1DB683");
+    const owe = MB.cssToken("--owe", "#FB7185");
+    const getback = MB.cssToken("--getback", "#3DDC97");
+    if (!values.length) return values.map(() => accent);
     const max = Math.max(...values);
     const min = Math.min(...values);
     return values.map((v) => {
-      if (v === max && (max !== min || values.length === 1)) return "#DC2626";
-      if (v === min && max !== min) return "#16A34A";
-      return "#F97316";
+      if (v === max && (max !== min || values.length === 1)) return owe;
+      if (v === min && max !== min) return getback;
+      return accent;
     });
   }
 
@@ -191,7 +194,7 @@
         labels: days.map((d) => d.slice(8)),
         datasets: [
           { label: "Daily", data: daily, borderColor: "#58a6ff", backgroundColor: "rgba(88,166,255,.15)", fill: true, tension: 0.25, pointRadius: 0, yAxisID: "y" },
-          { label: "Cumulative", data: cum, borderColor: "#F97316", tension: 0.2, pointRadius: 0, yAxisID: "y1" },
+          { label: "Cumulative", data: cum, borderColor: MB.cssToken("--accent", "#1DB683"), tension: 0.2, pointRadius: 0, yAxisID: "y1" },
           { label: "Budget", data: days.map(() => budget || null), borderColor: "#e3b341", borderDash: [5, 4], pointRadius: 0, yAxisID: "y1" },
         ],
       },

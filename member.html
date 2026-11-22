@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#1C1917" />
+  <meta name="theme-color" content="#0B1914" />
   <meta name="color-scheme" content="dark light" />
   <title>Member · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -21,7 +21,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+        if (m) m.setAttribute("content", t === "light" ? "#E6F7F0" : "#0B1914");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>

@@ -12,6 +12,47 @@
     return s;
   }
 
+
+  async function setupCategoryBudgets(room, ctx) {
+    const host = $("cat-budget-rows");
+    if (!host) return;
+    const cats = MB.roomCategories(room);
+    let current = (ctx && (ctx.categoryBudgets || ctx.category_budgets)) || [];
+    if (!current.length) {
+      const { data, error } = await MB.client().from("room_category_budgets").select("category,limit_amount").eq("room_id", room.id);
+      if (!error) current = data || [];
+    }
+    const addRow = (category, limit) => {
+      const wrap = document.createElement("div");
+      wrap.className = "filters cat-budget-row";
+      wrap.setAttribute("data-cat-row", "1");
+      wrap.innerHTML = `
+        <label class="field"><span>Category</span>
+          <select class="select cat-budget-cat">${cats.map((c) => `<option value="${escapeHtml(c)}"${c === category ? " selected" : ""}>${escapeHtml(c)}</option>`).join("")}</select>
+        </label>
+        <label class="field"><span>Monthly limit</span>
+          <input type="number" min="0.01" step="0.01" class="cat-budget-limit" value="${limit != null && limit !== "" ? escapeHtml(String(limit)) : ""}" />
+        </label>
+        <button type="button" class="text-btn" data-remove-cat>Remove</button>`;
+      wrap.querySelector("[data-remove-cat]").addEventListener("click", () => wrap.remove());
+      host.appendChild(wrap);
+    };
+    current.forEach((b) => addRow(b.category, b.limit_amount));
+    const addBtn = $("add-cat-budget");
+    if (addBtn) addBtn.addEventListener("click", () => addRow(cats[0] || "Other", ""));
+    const saveBtn = $("save-cat-budgets");
+    if (saveBtn) saveBtn.addEventListener("click", async () => {
+      const budgets = [...host.querySelectorAll("[data-cat-row]")].map((r) => ({
+        category: r.querySelector(".cat-budget-cat").value,
+        limit_amount: Number(r.querySelector(".cat-budget-limit").value),
+      })).filter((b) => b.category && b.limit_amount > 0);
+      const { error } = await MB.client().rpc("set_room_category_budgets", { p_room_id: room.id, p_budgets: budgets });
+      if (error) return MB.showPageError(errorMessage(error));
+      const ok = $("cat-budget-ok");
+      if (ok) { ok.hidden = false; ok.textContent = "Category budgets saved."; }
+    });
+  }
+
   async function main() {
     const ctx = await MB.bootApp({ title: "Room settings", month: true });
     if (!ctx) return;
@@ -26,7 +67,7 @@
     $("recurring-card").hidden = false;
     $("export-card").hidden = false;
     $("cat-budget-card").hidden = false;
-    await setupCategoryBudgets(room);
+    await setupCategoryBudgets(room, ctx);
 
     $("set-name").value = room.name || "";
     $("set-desc").value = room.description || "";
@@ -119,8 +160,18 @@
     $("rec-paid-by").innerHTML = members.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.display_name)}${m.id === ctx.uid ? " (you)" : ""}</option>`).join("");
 
     async function loadRecurring() {
-      const { data, error } = await MB.client().from("room_recurring").select("*").eq("room_id", room.id).order("created_at");
-      if (error) { $("recurring-list").innerHTML = `<p class="empty">${escapeHtml(errorMessage(error))}</p>`; return; }
+      let data = null, error = null;
+      const rpc = await MB.client().rpc("list_room_recurring", { p_room_id: room.id });
+      if (rpc.error) {
+        const fallback = await MB.client().from("room_recurring").select("*").eq("room_id", room.id).order("created_at");
+        data = fallback.data; error = fallback.error;
+      } else {
+        data = rpc.data;
+      }
+      if (error) {
+        $("recurring-list").innerHTML = `<p class="empty">Recurring expenses could not be loaded. You can still add one below.</p>`;
+        return;
+      }
       const rows = data || [];
       $("recurring-list").innerHTML = rows.length ? rows.map((r) => {
         const payer = MB.displayName(r.paid_by, members);

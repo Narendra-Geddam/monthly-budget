@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v10";
+const SHELL_CACHE = "mb-shell-v12";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -16,6 +16,9 @@ const SHELL_FILES = [
   "favicon.svg",
   "icons/icon-192.png",
   "icons/icon-512.png",
+  "icons/icon-192-maskable.png",
+  "icons/icon-512-maskable.png",
+  "icons/apple-touch-icon.png",
   "icons/og.png",
 ];
 const SHELL = SHELL_FILES.map((p) => (BASE || "") + "/" + p);

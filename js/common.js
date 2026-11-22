@@ -52,7 +52,7 @@
       if (!document.querySelector('link[rel="apple-touch-icon"]')) {
         const link = document.createElement("link");
         link.rel = "apple-touch-icon";
-        link.href = "icons/icon-192.png";
+        link.href = withBase("icons/apple-touch-icon.png");
         document.head.appendChild(link);
       }
       if ("serviceWorker" in navigator) {
@@ -144,6 +144,21 @@
   let profile = null;
   let currency = "INR";
 
+  const THEME_CHROME = { light: "#E6F7F0", dark: "#0B1914" };
+  function cssToken(name, fallback) {
+    try {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      if (v) return v;
+    } catch (e) { /* ignore */ }
+    return fallback;
+  }
+  function themeChromeColor(theme) {
+    return THEME_CHROME[theme] || THEME_CHROME.dark;
+  }
+  function applyThemeColor(theme) {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", themeChromeColor(theme));
+  }
   function applyThemeEarly() {
     try {
       let t = localStorage.getItem(THEME_KEY);
@@ -151,8 +166,7 @@
         t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
       }
       document.documentElement.setAttribute("data-theme", t);
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      applyThemeColor(t);
     } catch (e) {
       document.documentElement.setAttribute("data-theme", "dark");
     }
@@ -174,8 +188,7 @@
   function setTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignore */ }
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "light" ? "#FFF7ED" : "#1C1917");
+    applyThemeColor(theme);
     syncThemeToggle();
   }
   function themeToggleLabel() {
@@ -748,7 +761,7 @@
           </div>
         </a>
         <nav class="desktop-nav" aria-label="Main">
-          ${PAGES.filter((p) => p.id !== "profile").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
+          ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
         </nav>
         <div class="top-actions">
           <a class="icon-btn requests-link" href="notifications.html" aria-label="Notifications" title="Notifications">
@@ -1346,21 +1359,43 @@
     if (window.Chart) return window.Chart;
     await new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "vendor/chart.umd.min.js";
+      s.src = withBase("vendor/chart.umd.min.js");
       s.onload = resolve;
-      s.onerror = reject;
+      s.onerror = () => reject(new Error("Could not load the chart library."));
       document.head.appendChild(s);
     });
     return window.Chart;
   }
   function whenVisible(el, fn) {
-    if (!el) return;
-    const run = () => { try { fn(); } catch (e) { console.warn(e); } };
-    if (!("IntersectionObserver" in window)) { run(); return; }
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      try {
+        const result = fn();
+        if (result && typeof result.then === "function") result.catch((e) => console.warn(e));
+      } catch (e) { console.warn(e); }
+    };
+    if (!el) { run(); return; }
+    const hidden = !!(el.hidden || el.closest && el.closest("[hidden]"));
+    let displayNone = false;
+    try {
+      const st = window.getComputedStyle(el);
+      displayNone = st.display === "none" || st.visibility === "hidden";
+    } catch (e) { /* ignore */ }
+    if (hidden || displayNone || !("IntersectionObserver" in window)) { run(); return; }
     const io = new IntersectionObserver((ents) => {
       if (ents.some((e) => e.isIntersecting)) { io.disconnect(); run(); }
-    }, { rootMargin: "120px" });
+    }, { rootMargin: "160px" });
     io.observe(el);
+    try {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || 0;
+      if (rect.width > 0 && rect.height > 0 && rect.top < vh + 160 && rect.bottom > -160) {
+        io.disconnect();
+        run();
+      }
+    } catch (e) { /* observer will fire */ }
   }
   function setupPrefetch() {
     const pages = ["dashboard.html", "activity.html", "expenses.html", "add-expense.html", "personal.html", "analytics.html", "settle.html", "notifications.html"];
@@ -1488,7 +1523,7 @@
     isIosDevice, isStandaloneApp, subscribePush, unsubscribePush, sendTestPush, getPushSubscription,
     invitePageUrl, inviteShareText, whatsappShareHref, copyInviteMessage, shareInvite, safeNextPath,
     avatarHtml, paintHeaderAvatar, enhancePasswordFields, bindPasswordRules, itemizedSplits, fetchFxRate,
-    compressImage, signedReceiptUrl, loadChartJs, whenVisible, initials,
+    compressImage, signedReceiptUrl, loadChartJs, whenVisible, cssToken, initials,
     bootAuthPage, bootApp, showError, hideError, showPageError, setTheme, currentTheme, siteBase, withBase, originUrl,
     get profile() { return profile; },
     setCurrency(code) { currency = code; },

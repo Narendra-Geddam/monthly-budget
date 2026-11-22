@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#1C1917" />
+  <meta name="theme-color" content="#0B1914" />
   <meta name="color-scheme" content="dark light" />
   <title>Dashboard · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -21,7 +21,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+        if (m) m.setAttribute("content", t === "light" ? "#E6F7F0" : "#0B1914");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>
@@ -30,6 +30,30 @@
   <header id="topbar" class="topbar"></header>
   <main class="page" id="main">
 
+    <div class="skeleton-slot" id="dash-skeleton"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    <div id="dash-content">
+      <section class="card hero-status is-settled" id="hero-status" aria-live="polite">
+        <p class="brand-kicker">Your balance</p>
+        <h2 class="hero-line" id="hero-line">You're all settled 🎉</h2>
+        <p class="card-sub" id="hero-sub">This is what you need to pay, or what is coming back to you, after accepted shares.</p>
+        <div class="btn-row" id="hero-actions">
+          <a class="primary-btn" href="settle.html">Settle up</a>
+          <a class="secondary-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind via WhatsApp</a>
+        </div>
+      </section>
+      <section class="card month-card" id="month-card">
+        <header class="card-head">
+          <div>
+            <h2>This month</h2>
+            <p class="card-sub month-sentence" id="month-sentence">Loading this month’s spending…</p>
+          </div>
+          <a href="analytics.html">Analytics</a>
+        </header>
+        <div class="budget-bar" id="month-progress" hidden aria-hidden="true"><span id="budget-fill"></span></div>
+        <p class="month-share" id="month-share"></p>
+        <p class="card-sub" id="stat-room" hidden></p>
+      </section>
+      <section class="card" id="onboard-tip" hidden></section>
     <section class="card push-banner" id="push-banner" hidden>
       <header class="card-head">
         <div>
@@ -44,30 +68,6 @@
       </div>
       <p class="form-error" id="push-banner-error" hidden></p>
     </section>
-    <div class="skeleton-slot" id="dash-skeleton"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
-    <div id="dash-content">
-      <section class="card hero-status is-settled" id="hero-status" aria-live="polite">
-        <p class="brand-kicker">Your balance</p>
-        <h2 class="hero-line" id="hero-line">You're all settled 🎉</h2>
-        <p class="card-sub" id="hero-sub">This is what you need to pay, or what is coming back to you, after accepted shares.</p>
-        <div class="btn-row" id="hero-actions">
-          <a class="primary-btn" href="settle.html">Settle up</a>
-          <a class="secondary-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind via WhatsApp</a>
-        </div>
-      </section>
-      <section class="card" id="onboard-tip" hidden></section>
-      <section class="card month-card" id="month-card">
-        <header class="card-head">
-          <div>
-            <h2>This month</h2>
-            <p class="card-sub month-sentence" id="month-sentence">Loading this month’s spending…</p>
-          </div>
-          <a href="analytics.html">Analytics</a>
-        </header>
-        <div class="budget-bar" id="month-progress" hidden aria-hidden="true"><span id="budget-fill"></span></div>
-        <p class="month-share" id="month-share"></p>
-        <p class="card-sub" id="stat-room" hidden></p>
-      </section>
       <section class="card" id="onboard-invites" hidden>
         <header class="card-head"><div><h2>Invites for you</h2><p class="card-sub">A roommate asked you to join their room.</p></div></header>
         <div id="invite-list"></div>

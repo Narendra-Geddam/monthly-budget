@@ -142,12 +142,23 @@
   function renderChart(spent) {
     const empty = $("category-empty");
     const canvas = $("category-chart");
-    if (!window.Chart) { empty.hidden = false; return; }
+    const legend = $("category-legend");
+    if (!canvas) return;
+    if (!window.Chart) {
+      if (empty) { empty.hidden = false; empty.textContent = "The chart could not be loaded."; }
+      return;
+    }
     const rows = Object.entries(spent).map(([name, amount]) => ({ name, amount, color: CAT_COLORS[name] || "#78716c" })).filter((r) => r.amount > 0).sort((a,b) => b.amount - a.amount);
-    empty.hidden = rows.length > 0;
-    empty.textContent = "No spending to chart this month yet.";
+    if (empty) {
+      empty.hidden = rows.length > 0;
+      empty.textContent = rows.length ? "" : "No spending to chart this month yet.";
+    }
     canvas.style.opacity = rows.length ? "1" : "0";
-    $("category-legend").innerHTML = rows.map((r) => `<li>${MB.categoryChip(r.name)}<span class="amt">${escapeHtml(formatMoney(r.amount))}</span></li>`).join("");
+    if (legend) legend.innerHTML = rows.map((r) => `<li>${MB.categoryChip(r.name)}<span class="amt">${escapeHtml(formatMoney(r.amount))}</span></li>`).join("");
+    if (!rows.length) {
+      if (window._dashChart) { window._dashChart.destroy(); window._dashChart = null; }
+      return;
+    }
     if (window._dashChart) window._dashChart.destroy();
     window._dashChart = new Chart(canvas, {
       type: "doughnut",
@@ -271,11 +282,16 @@
     const spent = {};
     expenses.forEach((e) => { spent[e.category] = (spent[e.category] || 0) + Number(e.amount); });
     const afterCharts = async () => {
-      await MB.loadChartJs();
+      try {
+        await MB.loadChartJs();
+      } catch (err) { console.warn(err); }
       renderChart(spent);
-      await renderBudgets(ctx, expenses, roomTotal, spent);
+      try {
+        await renderBudgets(ctx, expenses, roomTotal, spent);
+      } catch (err) { console.warn(err); }
     };
-    MB.whenVisible($("budget-card") || $("category-chart") || document.querySelector(".charts-grid"), afterCharts);
+    const chartHost = document.querySelector(".charts-grid") || $("category-chart") || $("category-empty");
+    MB.whenVisible(chartHost, afterCharts);
     if (ctx.isAdmin) await renderJoinRequests(ctx.room.id, ctx.joinRequests);
     await renderMyInvites("dash-content");
   }
@@ -289,7 +305,7 @@
   function drawGauge(canvas, pct) {
     if (!canvas || typeof Chart === "undefined") return;
     const used = Math.max(0, Math.min(100, pct));
-    const color = used >= 100 ? "#DC2626" : used >= 80 ? "#F59E0B" : "#F97316";
+    const color = used >= 100 ? MB.cssToken("--owe", "#FB7185") : used >= 80 ? MB.cssToken("--warn", "#F59E0B") : MB.cssToken("--accent", "#1DB683");
     if (canvas._chart) canvas._chart.destroy();
     canvas._chart = new Chart(canvas.getContext("2d"), {
       type: "doughnut",
@@ -307,7 +323,9 @@
     const card = $("budget-card");
     const banner = $("budget-banner");
     const limit = Number(ctx.room.monthly_budget_limit);
-    const catBudgets = await MB.loadRoomCategoryBudgets(ctx.room.id);
+    let catBudgets = [];
+    try { catBudgets = await MB.loadRoomCategoryBudgets(ctx.room.id) || []; }
+    catch (err) { console.warn(err); }
     if (card) card.hidden = !(limit > 0 || catBudgets.length);
     const pct = limit > 0 ? Math.round((roomTotal / limit) * 100) : 0;
     if (limit > 0 && $("budget-label")) {
@@ -368,7 +386,7 @@
           type: "line",
           data: {
             labels: keys.map((k) => MB.monthLabel(k).slice(0, 3)),
-            datasets: [{ data: values, borderColor: "#F97316", backgroundColor: "rgba(249,115,22,.16)", fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 }],
+            datasets: [{ data: values, borderColor: MB.cssToken("--accent", "#1DB683"), backgroundColor: MB.cssToken("--accent-soft", "rgba(29,182,131,.16)"), fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 }],
           },
           options: {
             plugins: { legend: { display: false } },
