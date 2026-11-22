@@ -1,6 +1,6 @@
 (() => {
   const MB = window.MB;
-  const { $, escapeHtml, formatMoney, netLabel, CAT_COLORS } = MB;
+  const { $, escapeHtml, formatMoney, netLabel, colorForCategory } = MB;
 
   function renderNoRoom() {
     $("dash-content").innerHTML = `
@@ -148,7 +148,7 @@
       if (empty) { empty.hidden = false; empty.textContent = "The chart could not be loaded."; }
       return;
     }
-    const rows = Object.entries(spent).map(([name, amount]) => ({ name, amount, color: CAT_COLORS[name] || "#78716c" })).filter((r) => r.amount > 0).sort((a,b) => b.amount - a.amount);
+    const rows = Object.entries(spent).map(([name, amount]) => ({ name, amount, color: (colorForCategory || MB.colorForCategory)(name) })).filter((r) => r.amount > 0).sort((a,b) => b.amount - a.amount);
     if (empty) {
       empty.hidden = rows.length > 0;
       empty.textContent = rows.length ? "" : "No spending to chart this month yet.";
@@ -157,15 +157,40 @@
     if (legend) legend.innerHTML = rows.map((r) => `<li>${MB.categoryChip(r.name)}<span class="amt">${escapeHtml(formatMoney(r.amount))}</span></li>`).join("");
     if (!rows.length) {
       if (window._dashChart) { window._dashChart.destroy(); window._dashChart = null; }
+      window._dashChartReady = true;
       return;
     }
-    if (window._dashChart) window._dashChart.destroy();
-    window._dashChart = new Chart(canvas, {
-      type: "doughnut",
-      data: { labels: rows.map((r) => r.name), datasets: [{ data: rows.map((r) => r.amount), backgroundColor: rows.map((r) => r.color), borderWidth: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: "64%", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => " " + formatMoney(c.parsed) } } } },
-    });
+    const paint = () => {
+      const wrap = canvas.parentElement;
+      if (wrap && (wrap.clientWidth < 40 || wrap.clientHeight < 40)) {
+        requestAnimationFrame(paint);
+        return;
+      }
+      if (window._dashChart) window._dashChart.destroy();
+      window._dashChartReady = false;
+      window._dashSpent = spent;
+      window._dashChart = new Chart(canvas, {
+        type: "doughnut",
+        data: { labels: rows.map((r) => r.name), datasets: [{ data: rows.map((r) => r.amount), backgroundColor: rows.map((r) => r.color), borderWidth: 0 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          rotation: -90,
+          circumference: 360,
+          cutout: "64%",
+          animation: {
+            duration: 500,
+            onComplete: () => { window._dashChartReady = true; },
+          },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => " " + formatMoney(c.parsed) } } },
+        },
+      });
+    };
+    paint();
   }
+  window.addEventListener("mb-theme-change", () => {
+    if (window._dashSpent) renderChart(window._dashSpent);
+  });
 
 
   function bindDashInvite(ctx, members) {

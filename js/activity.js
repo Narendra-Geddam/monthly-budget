@@ -68,7 +68,17 @@
       if (d.to === uid || d.to === MB.uid()) return { text: "+" + formatMoney(amt), cls: "is-good" };
       if (d.from === uid) return { text: "−" + formatMoney(amt), cls: "is-bad" };
     }
-    if (["expense_added", "share_accepted", "share_forced", "expense_edited"].includes(action) && share != null) {
+    if (action === "share_accepted" || action === "share_forced") {
+      // Use the share that was accepted, not the viewer's split of the same bill.
+      const accepted = d.share_amount != null && d.share_amount !== "" ? Number(d.share_amount) : null;
+      if (accepted == null || Number.isNaN(accepted) || accepted < 0.005) return null;
+      if (paidBy === uid) return { text: "+" + formatMoney(accepted), cls: "is-good", label: "you get back" };
+      if (row.actor_id === uid || (action === "share_forced" && d.user_id === uid)) {
+        return { text: "−" + formatMoney(accepted), cls: "is-bad", label: "you owe" };
+      }
+      return null;
+    }
+    if (["expense_added", "expense_edited"].includes(action) && share != null) {
       if (paidBy === uid) {
         const back = Math.max(0, (amount != null ? amount : share) - share);
         if (back > 0.004) return { text: "+" + formatMoney(back), cls: "is-good", label: "you get back" };

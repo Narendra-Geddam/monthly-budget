@@ -76,16 +76,27 @@
   const PENDING_CODE_KEY = "monthly-budget-pending-code";
 
   const CATEGORIES = ["Rent", "Groceries", "Electricity", "Water", "Internet", "Gas", "Food/Outing", "Maid", "Other"];
+  const CAT_COLOR_TOKENS = {
+    Rent: "--cat-indigo",
+    Groceries: "--cat-green",
+    Electricity: "--cat-amber",
+    Water: "--cat-sky",
+    Internet: "--cat-teal",
+    Gas: "--cat-violet",
+    "Food/Outing": "--cat-rose",
+    Maid: "--cat-mint",
+    Other: "--cat-slate",
+  };
   const CAT_COLORS = {
-    Rent: "#B45309",
-    Groceries: "#CA8A04",
-    Electricity: "#D97706",
-    Water: "#0284C7",
-    Internet: "#A21CAF",
-    Gas: "#9A3412",
+    Rent: "#818CF8",
+    Groceries: "#1DB683",
+    Electricity: "#FBBF24",
+    Water: "#38BDF8",
+    Internet: "#2EC4A3",
+    Gas: "#C084FC",
     "Food/Outing": "#FB7185",
-    Maid: "#65A30D",
-    Other: "#78716C",
+    Maid: "#6EE7B7",
+    Other: "#94A3B8",
   };
   const CAT_ICONS = {
     Rent: "🏠",
@@ -190,6 +201,7 @@
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignore */ }
     applyThemeColor(theme);
     syncThemeToggle();
+    try { window.dispatchEvent(new CustomEvent("mb-theme-change", { detail: { theme } })); } catch (e) { /* ignore */ }
   }
   function themeToggleLabel() {
     return currentTheme() === "dark" ? "Switch to light theme" : "Switch to dark theme";
@@ -1013,11 +1025,16 @@
 
 
   function colorForCategory(name) {
+    const token = CAT_COLOR_TOKENS[name];
+    if (token) {
+      const v = cssToken(token, "");
+      if (v) return v;
+    }
     if (CAT_COLORS[name]) return CAT_COLORS[name];
     let hash = 0;
     String(name || "").split("").forEach((ch) => { hash = (hash * 31 + ch.charCodeAt(0)) >>> 0; });
-    const hues = [160, 28, 210, 45, 280, 12, 330, 90];
-    return "hsl(" + hues[hash % hues.length] + " 55% 48%)";
+    const hues = [170, 152, 199, 217, 239, 38, 350, 262, 215];
+    return "hsl(" + hues[hash % hues.length] + " 58% 46%)";
   }
 
   function monthKeysBack(from, count) {
@@ -1505,7 +1522,7 @@
   }
 
   window.MB = {
-    CATEGORIES, CAT_COLORS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
+    CATEGORIES, CAT_COLORS, CAT_COLOR_TOKENS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
     $, escapeHtml, errorMessage, formatMoney, equalSplits,
     getSelectedMonth, setSelectedMonth, monthLabel, monthBounds, todayISO,
     client, uid, currentPage, configured,
