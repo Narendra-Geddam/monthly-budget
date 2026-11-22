@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Shared roommate expenses for your bachelor room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Expenses · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+
+    <section class="card">
+      <header class="card-head">
+        <div>
+          <h2>Expenses</h2>
+          <p class="card-sub">Every shared bill this month, with who paid and your share.</p>
+        </div>
+      </header>
+      <div class="filters">
+        <label class="field"><span>Search</span><input type="search" id="exp-search" class="search-box" placeholder="Description, category, payer, amount" /></label>
+        <label class="field"><span>From</span><input type="date" id="filter-from" /></label>
+        <label class="field"><span>To</span><input type="date" id="filter-to" /></label>
+        <label class="field"><span>Category</span><select id="filter-category" class="select"></select></label>
+        <label class="field"><span>Paid by</span><select id="filter-payer" class="select"></select></label>
+      </div>
+    </section>
+    <div class="skeleton-slot"><div class="skeleton"></div><div class="skeleton"></div></div>
+    <section class="card"><div class="list" id="list"></div></section>
+    <a class="primary-btn" href="add-expense.html" style="margin-top:4px">Add expense</a>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  
+  <script defer src="js/common.js"></script>
+  <script defer src="js/expenses.js"></script>
+</body>
+</html>

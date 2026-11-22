@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Shared roommate expenses for your bachelor room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Dashboard · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+
+    <section class="card push-banner" id="push-banner" hidden>
+      <header class="card-head">
+        <div>
+          <h2>Enable phone notifications</h2>
+          <p class="card-sub">Get alerts in your notification bar with the phone's default sound, even when the tab is closed. A custom sound is not possible with web push.</p>
+          <p class="notice" id="dash-ios-hint" hidden style="margin-top:10px">On iPhone, add this app to your Home Screen first (Share → Add to Home Screen), then open it from there. Push needs iOS 16.4 or later.</p>
+        </div>
+      </header>
+      <div class="btn-row">
+        <button type="button" class="primary-btn" id="push-banner-enable">Enable</button>
+        <button type="button" class="text-btn" id="push-banner-dismiss">Not now</button>
+      </div>
+      <p class="form-error" id="push-banner-error" hidden></p>
+    </section>
+    <div class="skeleton-slot" id="dash-skeleton"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    <div id="dash-content">
+      <section class="card hero-status is-settled" id="hero-status" aria-live="polite">
+        <p class="brand-kicker">Your balance</p>
+        <h2 class="hero-line" id="hero-line">You're all settled 🎉</h2>
+        <p class="card-sub" id="hero-sub">This is what you need to pay, or what is coming back to you, after accepted shares.</p>
+        <div class="btn-row" id="hero-actions">
+          <a class="primary-btn" href="settle.html">Settle up</a>
+          <a class="secondary-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind via WhatsApp</a>
+        </div>
+      </section>
+      <section class="card" id="onboard-tip" hidden></section>
+      <section class="card month-card" id="month-card">
+        <header class="card-head">
+          <div>
+            <h2>This month</h2>
+            <p class="card-sub month-sentence" id="month-sentence">Loading this month’s spending…</p>
+          </div>
+          <a href="analytics.html">Analytics</a>
+        </header>
+        <div class="budget-bar" id="month-progress" hidden aria-hidden="true"><span id="budget-fill"></span></div>
+        <p class="month-share" id="month-share"></p>
+        <p class="card-sub" id="stat-room" hidden></p>
+      </section>
+      <section class="card" id="onboard-invites" hidden>
+        <header class="card-head"><div><h2>Invites for you</h2><p class="card-sub">A roommate asked you to join their room.</p></div></header>
+        <div id="invite-list"></div>
+      </section>
+      <section class="card" id="join-pending-banner" hidden></section>
+      <section class="card" id="admin-joins" hidden>
+        <header class="card-head"><div><h2>Pending join requests</h2><p class="card-sub">Approve or reject people who used the room code.</p></div></header>
+        <div id="join-request-list"></div>
+      </section>
+      <section class="budget-banner" id="budget-banner" hidden></section>
+      <section class="card" id="budget-card" hidden>
+        <header class="card-head">
+          <div>
+            <h2>Budget pace</h2>
+            <p class="card-sub" id="budget-label">How this month compares with your room limit.</p>
+          </div>
+        </header>
+        <div class="dash-visuals">
+          <div class="gauge-wrap">
+            <canvas id="budget-gauge" class="gauge-canvas" width="120" height="120" aria-label="Budget used"></canvas>
+          </div>
+          <div>
+            <p class="card-sub" style="margin-bottom:8px">Last 6 months</p>
+            <div class="spark-wrap"><canvas id="spend-spark" width="320" height="72" aria-label="Spending trend"></canvas></div>
+          </div>
+        </div>
+        <div id="cat-budget-list"></div>
+      </section>
+      <section class="card" id="pending-section" hidden>
+        <header class="card-head">
+          <div>
+            <h2>Waiting for you</h2>
+            <p class="card-sub">Accept or decline your share of a roommate's expense. Only accepted shares count toward balances.</p>
+          </div>
+          <a href="requests.html">See all</a>
+        </header>
+        <div id="pending-list"></div>
+      </section>
+      <section class="card" aria-label="My share this month">
+        <header class="card-head">
+          <div>
+            <h2>My share</h2>
+            <p class="card-sub">What you paid, and the part of each bill that belongs to you.</p>
+          </div>
+          <a href="my-share.html">Details</a>
+        </header>
+        <section class="summary-grid mine" aria-label="My totals">
+          <article class="stat"><p class="label">I paid</p><p class="value" id="stat-paid">₹0</p></article>
+          <article class="stat"><p class="label">My share</p><p class="value" id="stat-share">₹0</p></article>
+          <article class="stat" id="stat-net-card"><p class="label">My balance</p><p class="value" id="stat-net">Settled up</p></article>
+        </section>
+        <h3 style="margin:16px 0 8px">Accepted shares</h3>
+        <div class="list" id="my-accepted-list"></div>
+      </section>
+      <nav class="quick-actions" aria-label="Quick actions">
+        <a class="primary-btn" href="add-expense.html">Add expense</a>
+        <a class="secondary-btn" href="my-share.html">My share</a>
+        <a class="secondary-btn" href="settle.html">Settle up</a>
+        <button type="button" class="secondary-btn" id="dash-invite">Invite</button>
+      </nav>
+      <div class="charts-grid">
+        <section class="card">
+          <header class="card-head"><div><h3>Spending by category</h3><p class="card-sub">Where the room's money went this month.</p></div></header>
+          <div class="chart-wrap">
+            <canvas id="category-chart" aria-label="Spending by category"></canvas>
+            <p class="chart-empty" id="category-empty" hidden>No spending this month.</p>
+          </div>
+          <ul class="legend" id="category-legend"></ul>
+        </section>
+        <section class="card">
+          <header class="card-head"><div><h3>Recent expenses</h3><p class="card-sub">The latest bills added to this room.</p></div><a href="expenses.html">All expenses</a></header>
+          <div class="list" id="recent-list"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+
+  <script defer src="js/common.js"></script>
+  <script defer src="js/dashboard.js"></script>
+</body>
+</html>

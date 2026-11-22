@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Shared roommate expenses for your bachelor room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Add expense · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+
+    <p class="empty" id="no-room" hidden>Join or create a room first, then add a room expense. You can still add a personal expense. <a href="dashboard.html">Go to dashboard</a></p>
+    <div class="segmented type-toggle" id="kind-toggle" role="group" aria-label="Expense type">
+      <button type="button" class="seg-btn is-active" data-kind="room">Room expense</button>
+      <button type="button" class="seg-btn" data-kind="personal">Personal expense</button>
+    </div>
+    <form id="expense-form" class="card">
+      <div id="personal-fields" hidden>
+        <label class="field"><span>Type</span>
+          <select id="per-type" class="select">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </label>
+      </div>
+      <div class="btn-row" id="receipt-actions" style="margin-bottom:12px">
+        <label class="secondary-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="file" id="scan-receipt" accept="image/*" capture="environment" hidden />
+          Scan or upload receipt
+        </label>
+      </div>
+      <p class="card-sub" id="ocr-status" hidden></p>
+      <img id="receipt-preview" class="receipt-thumb" alt="Receipt preview" hidden />
+      <label class="field"><span>Amount (<span id="amount-currency-label">room currency</span>)</span><input type="number" id="exp-amount" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" /></label>
+      <div class="filters" id="fx-row">
+        <label class="field"><span>Currency</span><select id="exp-currency" class="select"></select></label>
+        <label class="field" id="fx-rate-field" hidden><span>Rate to room currency</span><input type="number" id="exp-fx-rate" step="any" min="0" /></label>
+      </div>
+      <p class="card-sub" id="fx-hint" hidden></p>
+      <label class="field"><span>Description</span><input type="text" id="exp-desc" maxlength="160" required placeholder="e.g. June rent, Saturday dinner" /></label>
+      <label class="field"><span>Category</span><select id="exp-category" class="select" required></select></label>
+      <label class="field"><span>Date</span><input type="date" id="exp-date" required /></label>
+      <div id="room-fields">
+      <label class="field"><span>Paid by</span><select id="exp-paid-by" class="select" required></select></label>
+      <div class="field">
+        <span>Split</span>
+        <div class="segmented" role="group" aria-label="Split type">
+          <button type="button" class="seg-btn is-active" data-split-mode="all">Everyone equally</button>
+          <button type="button" class="seg-btn" data-split-mode="selected">Selected equally</button>
+          <button type="button" class="seg-btn" data-split-mode="custom">Custom amounts</button>
+        </div>
+      </div>
+      <div class="field" id="preset-row">
+        <span>Saved splits</span>
+        <div class="btn-row">
+          <select id="split-preset" class="select"><option value="">Choose a preset</option></select>
+          <button type="button" class="text-btn" id="save-preset">Save as preset</button>
+        </div>
+      </div>
+      <div id="split-box" class="chip-row" style="margin-bottom:16px"></div>
+      <details id="itemize-box" style="margin-bottom:16px">
+        <summary>Itemize (split line by line)</summary>
+        <p class="card-sub">Each line has an amount and assigned members. Tax and tip are spread in proportion to the line totals.</p>
+        <div id="item-list"></div>
+        <button type="button" class="secondary-btn" id="add-item" style="margin:8px 0">Add line</button>
+        <div class="filters">
+          <label class="field"><span>Tax</span><input type="number" id="exp-tax" min="0" step="0.01" value="0" /></label>
+          <label class="field"><span>Tip</span><input type="number" id="exp-tip" min="0" step="0.01" value="0" /></label>
+        </div>
+        <p class="card-sub" id="itemize-sum"></p>
+        <button type="button" class="text-btn" id="apply-items">Apply to split</button>
+      </details>
+      <p class="card-sub" id="split-hint">Roommates you pick (other than you) get a pending share they must accept. Declined shares are not redistributed automatically.</p>
+      <p class="notice" id="decline-notice" hidden></p>
+      <div id="split-status" class="split-status" hidden></div>
+      </div>
+      <p class="form-error" id="form-error" hidden></p>
+      <div class="btn-row">
+        <button type="submit" class="primary-btn" id="exp-save">Save expense</button>
+        <button type="button" class="danger-btn ghost" id="exp-delete" hidden>Delete</button>
+      </div>
+    </form>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  
+  <script defer src="js/common.js"></script>
+  <script defer src="js/add-expense.js"></script>
+</body>
+</html>

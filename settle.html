@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Shared roommate expenses for your bachelor room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Settle up · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+
+    <div id="content">
+      <section class="card">
+        <header class="card-head">
+          <div>
+            <h2>Settle up</h2>
+            <p class="card-sub">A simple way to get everyone back to zero this month. A payment counts after the receiver marks it received.</p>
+          </div>
+        </header>
+        <div id="suggest-list"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><div><h3>Record a payment</h3><p class="card-sub">Log cash, UPI, or a bank transfer that already happened.</p></div></header>
+        <form id="pay-form">
+          <label class="field"><span>From</span><select id="pay-from" class="select" required></select></label>
+          <label class="field"><span>To</span><select id="pay-to" class="select" required></select></label>
+          <label class="field"><span>Amount</span><input type="number" id="pay-amount" min="0.01" step="0.01" required placeholder="0.00" /></label>
+          <label class="field"><span>Date</span><input type="date" id="pay-date" required /></label>
+          <label class="field"><span>Note <em>(optional)</em></span><input type="text" id="pay-note" maxlength="160" placeholder="UPI, cash, bank transfer" /></label>
+          <p class="form-error" id="pay-error" hidden></p>
+          <button type="submit" class="primary-btn">Save payment</button>
+        <p class="upi-pay" id="upi-pay" hidden></p>
+      </form>
+      </section>
+      <section class="card">
+        <header class="card-head"><div><h3>Payment history</h3><p class="card-sub">Confirmed and waiting payments for this month.</p></div></header>
+        <div class="list" id="history"></div>
+      </section>
+    </div>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  
+  <script defer src="js/common.js"></script>
+  <script defer src="js/settle.js"></script>
+</body>
+</html>

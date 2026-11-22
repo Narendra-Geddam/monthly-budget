@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Shared roommate expenses for your bachelor room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>My share · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+
+    <div id="content">
+      <p class="card card-sub" id="pending-note" hidden></p>
+      <section class="summary-grid">
+        <article class="card stat"><p class="label">I paid</p><p class="value" id="stat-paid">₹0.00</p></article>
+        <article class="card stat"><p class="label">My share</p><p class="value" id="stat-share">₹0.00</p></article>
+        <article class="card stat" id="stat-net-card"><p class="label">My balance</p><p class="value" id="stat-net">Settled up</p></article>
+      </section>
+      <section class="card">
+        <header class="card-head"><div><h3>Who I owe / who owes me</h3><p class="card-sub">A simple picture of this month's outstanding balances.</p></div></header>
+        <div id="owe-list"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><div><h3>My share per expense</h3><p class="card-sub">The part of each bill that belongs to you (accepted shares only).</p></div></header>
+        <div class="list" id="share-list"></div>
+      </section>
+    </div>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  
+  <script defer src="js/common.js"></script>
+  <script defer src="js/my-share.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "Monthly Budget",
+  "short_name": "Monthly Budget",
+  "description": "Shared roommate expenses and a private personal budget.",
+  "start_url": "./dashboard.html",
+  "scope": "./",
+  "id": "./dashboard.html",
+  "display": "standalone",
+  "background_color": "#1C1917",
+  "theme_color": "#F97316",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

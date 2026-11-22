@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="See how your room and personal spending change over time." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Analytics · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+    <div class="stack">
+      <section class="card">
+        <header class="card-head">
+          <div>
+            <h2>Analytics</h2>
+            <p class="card-sub">Compare months, categories, and budget pace. Personal mode uses only your private entries — roommates never see them.</p>
+          </div>
+        </header>
+        <div class="analytics-toolbar">
+          <div class="segmented mode-toggle" role="group" aria-label="Data source">
+            <button type="button" class="seg-btn is-active" data-mode="room">Room</button>
+            <button type="button" class="seg-btn" data-mode="personal">Personal</button>
+          </div>
+          <div class="segmented range-toggle" role="group" aria-label="Range">
+            <button type="button" class="seg-btn" data-range="3">3 months</button>
+            <button type="button" class="seg-btn is-active" data-range="6">6 months</button>
+            <button type="button" class="seg-btn" data-range="12">12 months</button>
+          </div>
+        </div>
+      </section>
+      <div class="analytics-shell" id="analytics-root">
+        <div class="kpi-grid" id="kpi-grid"></div>
+        <div class="panel-grid two">
+          <section class="panel">
+            <h3>Spending by month</h3>
+            <div class="chart-box tall"><canvas id="chart-mom"></canvas></div>
+          </section>
+          <section class="panel">
+            <h3>Spending vs budget</h3>
+            <div class="chart-box tall"><canvas id="chart-vs-budget"></canvas></div>
+          </section>
+        </div>
+        <div class="panel-grid two">
+          <section class="panel">
+            <h3>Category breakdown</h3>
+            <div class="chart-box"><canvas id="chart-donut"></canvas></div>
+          </section>
+          <section class="panel">
+            <h3>Categories over time</h3>
+            <div class="chart-box"><canvas id="chart-stack"></canvas></div>
+          </section>
+        </div>
+        <section class="panel" id="member-panel">
+          <h3>Contribution by member</h3>
+          <div class="chart-box"><canvas id="chart-members"></canvas></div>
+        </section>
+        <section class="panel">
+          <h3>Daily spend this month</h3>
+          <div class="chart-box tall"><canvas id="chart-daily"></canvas></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  <script defer src="js/common.js"></script>
+  <script defer src="js/analytics.js"></script>
+</body>
+</html>

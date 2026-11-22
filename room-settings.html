@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Admin settings for your room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Room settings · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+    <p class="empty" id="no-access" hidden>Only owners and admins can change room settings. <a href="room.html">Back to room</a></p>
+    <form id="settings-form" class="card" hidden>
+      <h2>Room settings</h2>
+      <p class="card-sub">These apply to everyone in the room. Only admins can edit them.</p>
+      <label class="field"><span>Room name</span><input type="text" id="set-name" maxlength="80" required /></label>
+      <label class="field"><span>Description or address</span><textarea id="set-desc" rows="3" maxlength="400" placeholder="Flat 4B, 3rd floor, near the park"></textarea></label>
+      <label class="field"><span>Currency</span><select id="set-currency" class="select"></select></label>
+      <label class="field"><span>Type</span>
+        <select id="set-type" class="select">
+          <option value="home">Home / roommate room</option>
+          <option value="trip">Trip or event</option>
+        </select>
+      </label>
+      <div class="filters" id="set-trip-dates">
+        <label class="field"><span>Start</span><input type="date" id="set-start" /></label>
+        <label class="field"><span>End</span><input type="date" id="set-end" /></label>
+      </div>
+      <label class="field"><span>Monthly budget limit <em>(optional)</em></span><input type="number" id="set-budget" min="0" step="0.01" placeholder="Leave blank for no limit" /></label>
+      <label class="field"><span>Default split</span>
+        <select id="set-split" class="select">
+          <option value="equal_all">Everyone equally</option>
+          <option value="equal_selected">Selected members equally</option>
+          <option value="custom">Custom amounts</option>
+        </select>
+      </label>
+      <label class="field"><span>Expense categories</span><textarea id="set-cats" rows="3" placeholder="One category per line"></textarea></label>
+      <label class="check-row"><input type="checkbox" id="set-members-add" checked /><span>Members may add expenses</span></label>
+      <label class="check-row"><input type="checkbox" id="set-approve" checked /><span>Require admin approval for new joins</span></label>
+      <p class="form-error" id="set-error" hidden></p>
+      <p class="form-ok" id="set-ok" hidden></p>
+      <button type="submit" class="primary-btn">Save settings</button>
+    </form>
+    <section class="card" id="code-card" hidden>
+      <h3>Invite code</h3>
+      <div class="code-box"><span id="set-code"></span><button type="button" class="text-btn" id="copy-code">Copy</button></div>
+      <div class="btn-row" style="margin-top:12px">
+        <a class="secondary-btn" id="share-wa" target="_blank" rel="noopener">Share invite on WhatsApp</a>
+        <button type="button" class="secondary-btn" id="share-native" hidden>Share</button>
+        <button type="button" class="secondary-btn" id="copy-msg">Copy message</button>
+        <button type="button" class="secondary-btn" id="reset-code">Reset code</button>
+        <button type="button" class="danger-btn ghost" id="archive-room">Archive room</button>
+      </div>
+    </section>
+    <section class="card" id="recurring-card" hidden>
+      <h3>Monthly recurring expenses</h3>
+      <p class="card-sub">Rent, wifi, and other bills can be generated automatically each month. The payer’s share is auto-accepted; others still need to accept, or an admin can force-accept.</p>
+      <div id="recurring-list"></div>
+      <form id="recurring-form" style="margin-top:16px">
+        <label class="field"><span>Description</span><input type="text" id="rec-desc" maxlength="160" required placeholder="e.g. Rent" /></label>
+        <label class="field"><span>Amount</span><input type="number" id="rec-amount" min="0.01" step="0.01" required /></label>
+        <label class="field"><span>Category</span><select id="rec-category" class="select"></select></label>
+        <label class="field"><span>Paid by</span><select id="rec-paid-by" class="select"></select></label>
+        <label class="field"><span>Day of month</span><input type="number" id="rec-day" min="1" max="28" value="1" required /></label>
+        <button type="submit" class="secondary-btn">Add recurring expense</button>
+      </form>
+    </section>
+    <section class="card" id="cat-budget-card" hidden>
+      <h3>Category budgets</h3>
+      <p class="card-sub">Optional monthly limits for individual categories. Members get one alert at 80% and one when a limit is exceeded.</p>
+      <div id="cat-budget-rows"></div>
+      <button type="button" class="secondary-btn" id="add-cat-budget" style="margin-top:12px">Add category limit</button>
+      <button type="button" class="primary-btn" id="save-cat-budgets" style="margin-top:12px">Save category budgets</button>
+      <p class="form-ok" id="cat-budget-ok" hidden></p>
+    </section>
+    <section class="card" id="export-card" hidden>
+      <h3>Export</h3>
+      <p class="card-sub">Download this month’s expenses, accepted shares, and confirmed settlements as CSV.</p>
+      <button type="button" class="secondary-btn" id="export-csv">Download CSV</button>
+    </section>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  <script defer src="js/common.js"></script>
+  <script defer src="js/room-settings.js"></script>
+</body>
+</html>

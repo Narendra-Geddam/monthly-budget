@@ -1,0 +1,9 @@
+.secrets
+.env
+.env.*
+*.pem
+node_modules/
+.netlify/
+screens/
+supabase/
+netlify/

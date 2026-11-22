@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Shared roommate expenses for your bachelor room." />
+  <meta name="theme-color" content="#1C1917" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Members · Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("monthly-budget-theme");
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "light" ? "#FFF7ED" : "#1C1917");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+  <main class="page" id="main">
+
+    <section class="card" id="admin-joins" hidden>
+      <header class="card-head"><div><h2>Pending join requests</h2><p class="card-sub">People who asked to join with the room code.</p></div></header>
+      <div id="join-request-list"></div>
+    </section>
+    <section class="card" id="invite-card" hidden>
+      <h2>Add a roommate</h2>
+      <p class="card-sub">Invite someone who already has an account by email. If they do not, share the invite link instead.</p>
+      <form id="invite-form">
+        <label class="field"><span>Email</span><input type="email" id="invite-email" required placeholder="roommate@email.com" /></label>
+        <button type="submit" class="secondary-btn">Send invite</button>
+      </form>
+      <p class="form-error" id="invite-error" hidden></p>
+      <p class="form-ok" id="invite-ok" hidden></p>
+    </section>
+    <section class="card">
+      <header class="card-head">
+        <div>
+          <h2>Roommates</h2>
+          <p class="card-sub">Who is in this room, and who is owed or owes money this month.</p>
+        </div>
+      </header>
+      <div id="list" class="list" style="margin-top:4px"></div>
+    </section>
+  </main>
+  <nav id="bottom-nav" class="bottom-nav"></nav>
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  
+  <script defer src="js/common.js"></script>
+  <script defer src="js/members.js"></script>
+</body>
+</html>

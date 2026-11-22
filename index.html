@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="0; url=login.html" />
+  <title>Monthly Budget</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <script defer src="config.js"></script>
+  <script defer src="vendor/supabase.min.js"></script>
+  <script>
+    (async function () {
+      try {
+        if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY && window.supabase) {
+          var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+          var res = await sb.auth.getSession();
+          location.replace(res.data && res.data.session ? "dashboard.html" : "login.html");
+          return;
+        }
+      } catch (e) {}
+      location.replace("login.html");
+    })();
+  </script>
+</head>
+<body>
+  <p style="font-family:system-ui;padding:2rem">Opening Monthly Budget…</p>
+</body>
+</html>
