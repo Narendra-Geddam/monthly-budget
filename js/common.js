@@ -89,7 +89,7 @@
   };
   const CAT_COLORS = {
     Rent: "#818CF8",
-    Groceries: "#1DB683",
+    Groceries: "#7BD44F",
     Electricity: "#FBBF24",
     Water: "#38BDF8",
     Internet: "#2EC4A3",
@@ -135,6 +135,10 @@
     users: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c.8-3 2.8-4.5 6-4.5s5.2 1.5 6 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 19c.5-1.8 1.7-3 3.8-3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     activity: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18.5" cy="19" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     camera: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 8h4l2-2h4l2 2h4v12H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="14" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    arrowOut: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 16 16 8M10 8h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    arrowIn: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M16 8 8 16M14 16H8v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    wa: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 19 6.2 15.4A7.5 7.5 0 1 1 8.6 17.8L5 19Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 9.6c.2-.5.3-.5.6-.5h.5c.2 0 .4.1.5.4l.5 1.2c.1.2 0 .4-.1.6l-.4.5c-.1.1-.1.3 0 .4.3.6.8 1.1 1.4 1.4.2.1.3.1.4 0l.5-.4c.2-.2.4-.2.6-.1l1.2.5c.3.1.4.3.4.5v.5c0 .3 0 .4-.5.6A5 5 0 0 1 11 14.8 5.8 5.8 0 0 1 9.2 9.6Z" fill="currentColor"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
   const PAGES = [
@@ -155,7 +159,7 @@
   let profile = null;
   let currency = "INR";
 
-  const THEME_CHROME = { light: "#E6F7F0", dark: "#0B1914" };
+  const THEME_CHROME = { light: "#F4F4F2", dark: "#10150C" };
   function cssToken(name, fallback) {
     try {
       const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -313,26 +317,67 @@
   function memberBalances(members, expenses, splits, settlements) {
     const map = new Map();
     members.forEach((m) => {
-      map.set(m.id, { id: m.id, name: m.display_name || "Member", paid: 0, share: 0, sent: 0, received: 0, net: 0 });
+      map.set(m.id, { id: m.id, name: m.display_name || "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, avatar_url: m.avatar_url });
     });
     const ensure = (id) => {
-      if (!map.has(id)) map.set(id, { id, name: "Member", paid: 0, share: 0, sent: 0, received: 0, net: 0 });
+      if (!map.has(id)) map.set(id, { id, name: "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0 });
       return map.get(id);
     };
+    const expenseById = new Map((expenses || []).map((e) => [e.id, e]));
     expenses.forEach((e) => { ensure(e.paid_by).paid += toCents(e.amount); });
-    splits.forEach((s) => { if (s.status === "accepted") ensure(s.user_id).share += toCents(s.share_amount); });
+    splits.forEach((s) => {
+      const cents = toCents(s.share_amount);
+      const exp = expenseById.get(s.expense_id);
+      if (s.status === "accepted") {
+        ensure(s.user_id).share += cents;
+        if (exp) ensure(exp.paid_by).collected += cents;
+      } else if (s.status === "pending") {
+        if (exp && exp.paid_by !== s.user_id) {
+          ensure(exp.paid_by).pendingIn += cents;
+          ensure(s.user_id).pendingOut += cents;
+        }
+      }
+    });
     settlements.forEach((s) => {
       if (s.status && s.status !== "confirmed") return;
       ensure(s.from_user).sent += toCents(s.amount);
       ensure(s.to_user).received += toCents(s.amount);
     });
     for (const row of map.values()) {
-      row.net = row.paid - row.share + row.sent - row.received;
+      // Only accepted shares count toward the balance. "I paid" still shows the full amount.
+      row.net = row.collected - row.share + row.sent - row.received;
       row.paidAmt = fromCents(row.paid);
       row.shareAmt = fromCents(row.share);
       row.netAmt = fromCents(row.net);
+      row.pendingInAmt = fromCents(row.pendingIn);
+      row.pendingOutAmt = fromCents(row.pendingOut);
+      row.sentAmt = fromCents(row.sent);
+      row.receivedAmt = fromCents(row.received);
     }
     return Array.from(map.values());
+  }
+  function balanceFootnote(row) {
+    if (!row) return "";
+    const parts = [];
+    if ((row.pendingInAmt || 0) > 0.004) parts.push(formatMoney(row.pendingInAmt) + " more pending acceptance");
+    if ((row.pendingOutAmt || 0) > 0.004) parts.push(formatMoney(row.pendingOutAmt) + " of your shares still waiting");
+    if ((row.receivedAmt || 0) > 0.004 && (row.sentAmt || 0) > 0.004) {
+      parts.push("after " + formatMoney(row.receivedAmt) + " received and " + formatMoney(row.sentAmt) + " already paid");
+    } else if ((row.receivedAmt || 0) > 0.004) {
+      parts.push("after " + formatMoney(row.receivedAmt) + " already received");
+    } else if ((row.sentAmt || 0) > 0.004) {
+      parts.push("after " + formatMoney(row.sentAmt) + " already paid to roommates");
+    }
+    if (!parts.length) return "";
+    const text = parts.join(". ");
+    return text.charAt(0).toUpperCase() + text.slice(1) + (text.endsWith(".") ? "" : ".");
+  }
+  function paintBalanceNote(id, row) {
+    const el = $(id);
+    if (!el) return;
+    const text = balanceFootnote(row);
+    el.hidden = !text;
+    el.textContent = text || "";
   }
 
   // net > 0: others owe this person. net < 0: this person owes.
@@ -562,8 +607,7 @@
     const o = opts || {};
     const cta = o.href && o.cta ? `<a class="primary-btn" href="${escapeHtml(o.href)}">${escapeHtml(o.cta)}</a>` : "";
     return `<div class="empty-state">
-      <p class="empty-emoji" aria-hidden="true">${o.emoji || "✨"}</p>
-      <h3>${escapeHtml(o.title || "Nothing here yet")}</h3>
+      <h2 class="display-title">${escapeHtml(o.title || "Nothing here yet")}</h2>
       <p>${escapeHtml(o.text || "")}</p>
       ${cta}
     </div>`;
@@ -625,23 +669,23 @@
     const splits = allSplits.filter((s) => s.expense_id === expense.id);
     const href = o.href || ("add-expense.html?id=" + expense.id);
     const receipt = o.receipt || "";
-    const payer = members.find((m) => m.id === expense.paid_by) || { display_name: displayName(expense.paid_by, members) };
-    const payerName = payer.display_name || displayName(expense.paid_by, members) || "Someone";
+    const payer = memberRecord(expense.paid_by, members);
+    const minePaid = expense.paid_by === uid();
     const mine = splits.find((s) => s.user_id === uid());
     const shareBit = mine ? " · your share " + formatMoney(mine.share_amount) : "";
     const fx = expense.original_currency && expense.original_amount
       ? " · was " + expense.original_amount + " " + expense.original_currency
       : "";
-    const chips = splits.map((s) => statusChip(s, displayName(s.user_id, members))).join("");
+    const title = expense.description || "Expense";
+    const subKind = minePaid ? "Paid" : "From " + displayName(expense.paid_by, members);
     return `<a class="list-item expense-row" href="${escapeHtml(href)}">
-      ${avatarHtml(payer, "")}
+      <span class="tx-icon ${minePaid ? "is-out" : "is-in"}" aria-hidden="true">${minePaid ? ICONS.arrowOut : ICONS.arrowIn}</span>
       <div>
-        <div class="item-title">${escapeHtml(payerName)} paid ${escapeHtml(formatMoney(expense.amount))}${escapeHtml(fx)}</div>
-        <div class="item-sub">${categoryChip(expense.category)} · ${escapeHtml(friendlyDate(expense.date))}${escapeHtml(shareBit)}</div>
-        ${expense.description ? `<div class="item-sub">${escapeHtml(expense.description)}</div>` : ""}
-        <div class="chip-row status-chips">${chips}</div>
+        <div class="item-title">${personChip(payer, members, "avatar-sm")}<span>${escapeHtml(title)}${escapeHtml(fx)}</span></div>
+        <div class="item-sub">${escapeHtml(subKind)} · ${escapeHtml(friendlyDate(expense.date))}${escapeHtml(shareBit)}</div>
         ${receipt}
       </div>
+      <div class="item-amt ${minePaid ? "" : "pos"}">${minePaid ? "" : "+"}${escapeHtml(formatMoney(expense.amount))}</div>
     </a>`;
   }
   function renderOnboardingTip(host) {
@@ -654,7 +698,7 @@
       <header class="card-head">
         <div>
           <h2>A quick look around</h2>
-          <p class="card-sub">The big line at the top is your bottom line. Red means you need to pay someone; green means money is coming back to you.</p>
+          <p class="card-sub">The big line at the top is your bottom line. Rose means you need to pay someone; lime means money is coming back to you.</p>
         </div>
       </header>
       <ul class="tip-list">
@@ -705,11 +749,11 @@
     }
     host.innerHTML = requests.map((r) => {
       const e = r.expense;
-      const payer = displayName(e.paid_by, members);
+      const payer = memberRecord(e.paid_by, members);
       return `<article class="pending-card" data-expense-id="${escapeHtml(e.id)}">
         <div>
           <div class="item-title">${escapeHtml(e.description)}</div>
-          <div class="item-sub">${categoryChip(e.category)} · ${escapeHtml(friendlyDate(e.date))} · paid by ${escapeHtml(payer)}</div>
+          <div class="item-sub">${categoryChip(e.category)} · ${escapeHtml(friendlyDate(e.date))} · paid by ${personChip(payer, members, "avatar-sm")}</div>
           <div class="item-sub">Your share ${escapeHtml(formatMoney(r.share_amount))} ${infoTip("Your share is the part of this expense that you are responsible for.")}</div>
         </div>
         <div class="btn-row compact">
@@ -764,9 +808,16 @@
     const header = document.getElementById("topbar");
     if (header) {
       header.className = "topbar";
+      if (page === "profile.html") {
+        document.body.classList.add("profile-page");
+        header.innerHTML = `
+          <div class="profile-top">
+            <a class="back-btn" href="dashboard.html" aria-label="Back">${ICONS.prev}</a>
+          </div>`;
+      } else {
       header.innerHTML = `
+        <a class="top-avatar" href="profile.html" id="header-profile" aria-label="Profile" title="Profile">${avatarHtml({ display_name: (profile && profile.display_name) || "You", avatar_url: profile && profile.avatar_url, id: uid() }, "avatar-row")}</a>
         <a class="brand" href="dashboard.html" title="Monthly Budget home">
-          <img src="favicon.svg" alt="Monthly Budget" width="32" height="32" />
           <div class="brand-text">
             <p class="brand-kicker">Monthly Budget</p>
             <h1 id="room-name" class="room-name">Monthly Budget</h1>
@@ -776,12 +827,12 @@
           ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
         </nav>
         <div class="top-actions">
-          <a class="icon-btn requests-link" href="notifications.html" aria-label="Notifications" title="Notifications">
+          <a class="icon-btn pill-btn requests-link" href="notifications.html" aria-label="Notifications" title="Notifications">
             ${ICONS.bell}<span class="badge" data-notif-badge hidden></span>
           </a>
-          <button type="button" class="icon-btn" id="theme-toggle" aria-label="${escapeHtml(themeToggleLabel())}" title="${escapeHtml(themeToggleLabel())}">${ICONS.sun}${ICONS.moon}</button>
-          <a class="icon-btn profile-link" href="profile.html" aria-label="Profile" title="Profile" id="header-profile">${ICONS.user}</a>
+          <button type="button" class="icon-btn pill-btn" id="theme-toggle" aria-label="${escapeHtml(themeToggleLabel())}" title="${escapeHtml(themeToggleLabel())}">${ICONS.sun}${ICONS.moon}</button>
         </div>`;
+      }
     }
     const bottom = document.getElementById("bottom-nav");
     if (bottom) {
@@ -809,36 +860,44 @@
   }
 
   function injectMonthBar(month) {
+    const header = document.getElementById("topbar");
+    let chrome = document.querySelector(".app-chrome");
+    if (header && !chrome) {
+      chrome = document.createElement("div");
+      chrome.className = "app-chrome";
+      header.parentNode.insertBefore(chrome, header);
+      chrome.appendChild(header);
+    }
     const main = document.getElementById("main") || document.querySelector("main.page");
-    if (!main) return;
     let bar = document.getElementById("month-picker");
-    if (!bar) bar = document.querySelector("main .month-bar");
+    if (!bar) bar = document.querySelector(".month-bar");
     if (!bar || bar.closest("#month-card, #budget-card")) {
       bar = document.createElement("div");
       bar.id = "month-picker";
       bar.className = "month-bar";
-      main.insertBefore(bar, main.firstChild);
+      if (chrome) chrome.appendChild(bar);
+      else if (main) main.insertBefore(bar, main.firstChild);
     } else {
       bar.id = "month-picker";
+      if (chrome && bar.parentNode !== chrome) chrome.appendChild(bar);
     }
     bar.hidden = false;
+    const label = monthLabel(month);
     bar.innerHTML = `
-      <label class="month-label" for="month-input">Month</label>
-      <div class="month-controls">
-        <button type="button" class="month-shift" id="prev-month" aria-label="Previous month" title="Previous month">Previous</button>
-        <input type="month" id="month-input" value="${escapeHtml(month)}" aria-label="Select month, currently ${escapeHtml(monthLabel(month))}" title="Select month" />
-        <button type="button" class="month-shift" id="next-month" aria-label="Next month" title="Next month">Next</button>
-      </div>`;
+      <button type="button" class="month-nav" id="prev-month" aria-label="Previous month" title="Previous month">${ICONS.prev}</button>
+      <div class="month-current-wrap">
+        <span class="month-current" id="month-open">${escapeHtml(label)}</span>
+        <input type="month" id="month-input" class="month-native" value="${escapeHtml(month)}" aria-label="Select month, currently ${escapeHtml(label)}" title="Select month" />
+      </div>
+      <button type="button" class="month-nav" id="next-month" aria-label="Next month" title="Next month">${ICONS.next}</button>`;
     const go = (key) => {
+      if (!key || !/^\d{4}-\d{2}$/.test(key)) return;
       setSelectedMonth(key);
       location.reload();
     };
     $("prev-month").addEventListener("click", () => go(shiftMonth(getSelectedMonth(), -1)));
     $("next-month").addEventListener("click", () => go(shiftMonth(getSelectedMonth(), 1)));
-    $("month-input").addEventListener("change", (e) => {
-      const value = e.target.value;
-      if (value && /^\d{4}-\d{2}$/.test(value)) go(value);
-    });
+    $("month-input").addEventListener("change", (e) => go(e.target.value));
   }
 
   function openMoreSheet() {
@@ -1227,14 +1286,47 @@
     return (s.slice(0, 1) || "?").toUpperCase();
   }
   function avatarUrlOf(person) {
-    return person && person.avatar_url ? person.avatar_url : "";
+    return person && (person.avatar_url || person.actor_avatar) ? (person.avatar_url || person.actor_avatar) : "";
+  }
+  function avatarHue(id) {
+    const s = String(id || "");
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return Math.abs(h) % 360;
+  }
+  function memberRecord(id, members) {
+    if (id && profile && id === uid()) {
+      const fromList = (members || []).find((m) => m.id === id) || {};
+      return {
+        id,
+        display_name: (profile.display_name || fromList.display_name || "You"),
+        avatar_url: profile.avatar_url || fromList.avatar_url,
+      };
+    }
+    const m = (members || []).find((x) => x.id === id);
+    if (m) return m;
+    return { id: id, display_name: "Member" };
   }
   function avatarHtml(person, cls) {
-    const name = (person && (person.display_name || person.name)) || "?";
-    const url = avatarUrlOf(person);
-    const klass = "avatar " + (cls || "");
-    if (url) return `<span class="${klass}"><img src="${escapeHtml(url)}" alt="" /></span>`;
-    return `<span class="avatar-fallback ${klass}">${escapeHtml(initials(name))}</span>`;
+    const p = person || {};
+    const name = p.display_name || p.name || p.actor_name || "?";
+    const url = avatarUrlOf(p);
+    const klass = "avatar " + (cls || "avatar-row");
+    const hue = avatarHue(p.id || p.user_id || p.actor_id || name);
+    const style = `--avatar-hue:${hue}`;
+    if (url) {
+      return `<span class="${klass}" style="${style}"><img src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async" /></span>`;
+    }
+    return `<span class="avatar-fallback ${klass}" style="${style}">${escapeHtml(initials(name))}</span>`;
+  }
+  function personChip(personOrId, members, cls) {
+    const p = (personOrId && typeof personOrId === "object")
+      ? personOrId
+      : memberRecord(personOrId, members);
+    const id = p.id || p.user_id;
+    const name = (id && members) ? displayName(id, members) : (p.display_name || p.name || p.actor_name || "Member");
+    // Avatar always sits to the left of the name.
+    return `<span class="person">${avatarHtml(p, cls || "avatar-sm")}<span class="person-name">${escapeHtml(name)}</span></span>`;
   }
   function paintHeaderAvatar(p) {
     const el = document.getElementById("header-profile");
@@ -1531,7 +1623,7 @@
     memberBalances, settleSuggestions, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
     friendlyDate, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
-    memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml,
+    memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge,
     isAdmin, isOwner, roleLabel, roomCategories, loadUnreadCount, setNotifBadge,

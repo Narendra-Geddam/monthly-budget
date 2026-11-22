@@ -14,6 +14,7 @@
     $("stat-share").textContent = formatMoney(mine.shareAmt);
     $("stat-net").textContent = net.text;
     $("stat-net-card").className = "card stat " + net.cls;
+    if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", mine);
 
     const mySplits = splits.filter((s) => s.user_id === ctx.uid && s.status === "accepted");
     const myPending = splits.filter((s) => s.user_id === ctx.uid && s.status === "pending");
@@ -29,8 +30,8 @@
     }
     const suggestions = MB.settleSuggestions(balances).filter((t) => t.from.id === ctx.uid || t.to.id === ctx.uid);
     $("owe-list").innerHTML = suggestions.length ? suggestions.map((t) => {
-      if (t.from.id === ctx.uid) return `<div class="suggest"><span>You owe <strong>${escapeHtml(t.to.name)}</strong></span><strong class="net-pill neg">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
-      return `<div class="suggest"><span><strong>${escapeHtml(t.from.name)}</strong> owes you</span><strong class="net-pill pos">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
+      if (t.from.id === ctx.uid) return `<div class="suggest"><span>You owe ${MB.personChip(t.to, members, "avatar-sm")}</span><strong class="net-pill neg">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
+      return `<div class="suggest"><span>${MB.personChip(t.from, members, "avatar-sm")} owes you</span><strong class="net-pill pos">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
     }).join("") : MB.emptyState({ emoji: "🎉", title: "You're all settled", text: "No outstanding balances with roommates this month." });
   }
   main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });

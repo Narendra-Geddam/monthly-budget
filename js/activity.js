@@ -24,6 +24,13 @@
     if (row.actor_id && row.actor_id === MB.uid()) return "You";
     return row.actor_name || "Someone";
   }
+  function actorChip(row) {
+    return MB.personChip({
+      id: row.actor_id,
+      display_name: who(row),
+      avatar_url: row.actor_avatar,
+    }, null, "avatar-sm");
+  }
 
   function relativeTime(iso) {
     if (!iso) return "";
@@ -102,9 +109,9 @@
 
   function sentence(row) {
     const d = detail(row);
-    const actor = who(row);
-    const desc = d.description || d.title || "";
-    const cat = d.category || "";
+    const actor = actorChip(row);
+    const desc = escapeHtml(d.description || d.title || "");
+    const cat = escapeHtml(d.category || "");
     const amt = d.amount != null ? formatMoney(d.amount) : "";
     const share = shareOf(row);
     const shareBit = share != null ? " · your share " + formatMoney(share) : "";
@@ -118,7 +125,7 @@
           return "Expense edited: amount " + formatMoney(before.amount) + " → " + formatMoney(d.amount);
         }
         if (before.description && desc && before.description !== desc) {
-          return "Expense edited: " + before.description + " → " + desc;
+          return "Expense edited: " + escapeHtml(before.description) + " → " + desc;
         }
         return actor + " edited " + (desc || cat || "an expense");
       }
@@ -131,7 +138,7 @@
       case "share_forced":
         return "Admin marked a " + (cat || desc || "") + " share as accepted";
       case "settlement_recorded": {
-        const via = d.note && /upi/i.test(d.note) ? " via UPI" : (d.note ? " · " + d.note : "");
+        const via = d.note && /upi/i.test(d.note) ? " via UPI" : (d.note ? " · " + escapeHtml(d.note) : "");
         if (d.to === MB.uid()) return (d.from === row.actor_id ? actor : (actor)) + " paid you " + (amt || formatMoney(d.amount)) + via;
         if (d.from === MB.uid() && row.actor_id === MB.uid()) return "You paid " + (amt || formatMoney(d.amount)) + via;
         return actor + " recorded a " + (amt || "") + " payment" + via;
@@ -151,15 +158,15 @@
       case "join_rejected":
         return actor + " declined a join request";
       case "room_created":
-        return actor + " created " + (d.name || row.room_name || "the room");
+        return actor + " created " + escapeHtml(d.name || row.room_name || "the room");
       case "code_reset":
         return actor + " reset the invite code";
       case "settings_updated":
         return actor + " updated room settings";
       case "budget_warning":
-        return d.title || ("Budget 80% reached" + (cat ? " for " + cat : ""));
+        return escapeHtml(d.title || "") || ("Budget 80% reached" + (cat ? " for " + cat : ""));
       case "budget_exceeded":
-        return d.title || ("Budget exceeded" + (cat ? " for " + cat : ""));
+        return escapeHtml(d.title || "") || ("Budget exceeded" + (cat ? " for " + cat : ""));
       case "personal_added":
         return "You added a personal " + (d.type === "income" ? "income" : "expense") + (amt ? ": " + amt : "") + (cat ? " · " + cat : "");
       case "personal_edited":
@@ -184,12 +191,11 @@
   }
 
   function media(row) {
-    const d = detail(row);
-    if (row.actor_avatar || row.actor_name) {
-      return MB.avatarHtml({ display_name: row.actor_name, avatar_url: row.actor_avatar }, "");
-    }
-    if (d.category) return `<span class="item-icon cat-fallback">${MB.categoryIcon(d.category)}</span>`;
-    return `<span class="item-icon">•</span>`;
+    const imp = impact(row);
+    const icons = MB.ICONS || {};
+    if (imp && imp.cls === "is-good") return `<span class="tx-icon is-in" aria-hidden="true">${icons.arrowIn || "↓"}</span>`;
+    if (imp && imp.cls === "is-bad") return `<span class="tx-icon is-out" aria-hidden="true">${icons.arrowOut || "↑"}</span>`;
+    return `<span class="tx-icon" aria-hidden="true">${icons.activity || "•"}</span>`;
   }
 
   function renderFeed() {
@@ -220,11 +226,11 @@
             const imp = impact(row);
             const href = hrefFor(row);
             const roomBit = row.room_name && scope === "all" ? `<span class="item-sub-room">${escapeHtml(row.room_name)}</span>` : "";
-            const chip = imp ? `<span class="impact-chip ${imp.cls}" title="${escapeHtml(imp.label || "")}">${escapeHtml(imp.text)}</span>` : "";
+            const chip = imp ? `<span class="item-amt ${imp.cls === "is-good" ? "pos" : (imp.cls === "is-bad" ? "neg" : "")}" title="${escapeHtml(imp.label || "")}">${escapeHtml(imp.text)}</span>` : "";
             return `<a class="list-item activity-item" href="${escapeHtml(href)}">
               ${media(row)}
               <div>
-                <div class="item-title">${escapeHtml(sentence(row))}</div>
+                <div class="item-title">${sentence(row)}</div>
                 <div class="item-sub">${escapeHtml(relativeTime(row.created_at))}${roomBit ? " · " + roomBit : ""}</div>
               </div>
               ${chip}
@@ -287,6 +293,17 @@
       if (error) throw error;
       const payload = data && data.items ? data : { items: Array.isArray(data) ? data : [], has_more: false };
       const batch = payload.items || [];
+      const missing = [...new Set(batch.filter((r) => r.actor_id && !r.actor_avatar).map((r) => r.actor_id))];
+      if (missing.length) {
+        const { data: profiles } = await MB.client().from("profiles").select("id, avatar_url, display_name").in("id", missing);
+        const map = new Map((profiles || []).map((x) => [x.id, x]));
+        batch.forEach((r) => {
+          const pr = map.get(r.actor_id);
+          if (!pr) return;
+          if (!r.actor_avatar) r.actor_avatar = pr.avatar_url;
+          if (!r.actor_name) r.actor_name = pr.display_name;
+        });
+      }
       if (reset) items = batch;
       else items = items.concat(batch);
       hasMore = !!payload.has_more;

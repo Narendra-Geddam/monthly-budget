@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Accept or decline pending roommate shares." />
-  <meta name="theme-color" content="#0B1914" />
+  <meta name="theme-color" content="#10150C" />
   <meta name="color-scheme" content="dark light" />
   <title>Pending requests · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -12,7 +12,8 @@
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script>
     (function () {
@@ -21,7 +22,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#E6F7F0" : "#0B1914");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#10150C");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>

@@ -18,6 +18,7 @@
     $("stat-share").textContent = formatMoney(row.shareAmt);
     $("stat-net").textContent = net.text;
     $("stat-net-card").className = "card stat " + net.cls;
+    if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", row);
     const paid = expenses.filter((e) => e.paid_by === id);
     $("paid-list").innerHTML = paid.length ? paid.map((e) => `
       <a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}">
@@ -31,7 +32,7 @@
       if (!e) return "";
       return `<a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}">
         <div class="item-icon">${escapeHtml(e.category.slice(0,1))}</div>
-        <div><div class="item-title">${escapeHtml(e.description)}</div><div class="item-sub">Paid by ${escapeHtml(MB.displayName(e.paid_by, members))}</div></div>
+        <div><div class="item-title">${escapeHtml(e.description)}</div><div class="item-sub">Paid by ${MB.personChip(e.paid_by, members, "avatar-sm")}</div></div>
         <div class="item-amt">${escapeHtml(formatMoney(s.share_amount))}</div>
       </a>`;
     }).join("") : `<p class="empty">No shares this month.</p>`;

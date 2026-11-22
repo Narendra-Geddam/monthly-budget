@@ -117,10 +117,10 @@
     }
     box.hidden = false;
     list.innerHTML = data.map((r) => {
-      const p = profiles.find((x) => x.id === r.user_id);
-      const name = r.display_name || (p && p.display_name) || "Someone";
+      const p = profiles.find((x) => x.id === r.user_id) || {};
+      const person = { id: r.user_id, display_name: r.display_name || p.display_name || "Someone", avatar_url: r.avatar_url || p.avatar_url };
       return `<div class="pending-card">
-        <div><div class="item-title">${escapeHtml(name)}</div><div class="item-sub">Asked to join with the room code</div></div>
+        <div><div class="item-title">${MB.personChip(person, null, "avatar-row")}</div><div class="item-sub">Asked to join with the room code</div></div>
         <div class="btn-row compact">
           <button type="button" class="primary-btn" data-approve="${escapeHtml(r.id)}">Approve</button>
           <button type="button" class="danger-btn ghost" data-reject="${escapeHtml(r.id)}">Reject</button>
@@ -249,12 +249,21 @@
     const heroLine = $("hero-line");
     if (heroEl && heroLine) {
       heroEl.className = "card hero-status " + hero.cls;
-      heroLine.textContent = hero.text;
+      if (hero.counterpart) {
+        const chip = MB.personChip(MB.memberRecord(hero.counterpart.id, members), members, "avatar-sm");
+        if (hero.direction === "owed") heroLine.innerHTML = chip + " owes you " + MB.escapeHtml(MB.formatMoney(hero.amount));
+        else if (hero.direction === "owe") heroLine.innerHTML = "You owe " + chip + " " + MB.escapeHtml(MB.formatMoney(hero.amount));
+        else heroLine.textContent = hero.text;
+      } else {
+        heroLine.textContent = hero.text;
+      }
       const sub = $("hero-sub");
       if (sub) {
-        sub.innerHTML = hero.direction === "settled"
+        const note = MB.balanceFootnote(mine);
+        const base = hero.direction === "settled"
           ? "No one in this room owes anyone for this month."
           : "Based on accepted shares this month. " + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.");
+        sub.innerHTML = base + (note ? " " + MB.escapeHtml(note) : "");
       }
       const remind = $("hero-remind");
       if (remind) {
@@ -262,7 +271,7 @@
         if (href && hero.counterpart) {
           remind.hidden = false;
           remind.href = href;
-          remind.textContent = hero.direction === "owe" ? "Remind via WhatsApp" : "Remind via WhatsApp";
+          remind.innerHTML = (MB.ICONS && MB.ICONS.wa ? MB.ICONS.wa : "") + "<span>Remind</span>";
         } else {
           remind.hidden = true;
         }
@@ -286,6 +295,7 @@
     $("stat-share").textContent = formatMoney(mine.shareAmt);
     $("stat-net").textContent = net.text;
     $("stat-net-card").className = "stat " + net.cls;
+    if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", mine);
 
     if (ctx.pending && ctx.pending.length) {
       $("pending-section").hidden = false;
@@ -330,7 +340,7 @@
   function drawGauge(canvas, pct) {
     if (!canvas || typeof Chart === "undefined") return;
     const used = Math.max(0, Math.min(100, pct));
-    const color = used >= 100 ? MB.cssToken("--owe", "#FB7185") : used >= 80 ? MB.cssToken("--warn", "#F59E0B") : MB.cssToken("--accent", "#1DB683");
+    const color = used >= 100 ? MB.cssToken("--owe", "#FB7185") : used >= 80 ? MB.cssToken("--warn", "#F59E0B") : MB.cssToken("--accent", "#9FE870");
     if (canvas._chart) canvas._chart.destroy();
     canvas._chart = new Chart(canvas.getContext("2d"), {
       type: "doughnut",
@@ -411,7 +421,7 @@
           type: "line",
           data: {
             labels: keys.map((k) => MB.monthLabel(k).slice(0, 3)),
-            datasets: [{ data: values, borderColor: MB.cssToken("--accent", "#1DB683"), backgroundColor: MB.cssToken("--accent-soft", "rgba(29,182,131,.16)"), fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 }],
+            datasets: [{ data: values, borderColor: MB.cssToken("--accent", "#9FE870"), backgroundColor: MB.cssToken("--accent-soft", "rgba(159,232,112,.16)"), fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 }],
           },
           options: {
             plugins: { legend: { display: false } },

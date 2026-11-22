@@ -23,9 +23,9 @@
       const upiBtn = canPayUpi ? `<a class="primary-btn" href="${upi}">Pay via UPI</a>` : "";
       return `<article class="transfer-card" data-from="${escapeHtml(t.from.id)}" data-to="${escapeHtml(t.to.id)}" data-amount="${escapeHtml(String(t.amount))}">
         <div class="transfer-flow">
-          <div class="transfer-person">${MB.avatarHtml(from, "")}<span>${escapeHtml(fromName)}${t.from.id === ctx.uid ? " (you)" : ""}</span></div>
+          <div class="transfer-person">${MB.personChip(from, members, "avatar-row")}${t.from.id === ctx.uid ? " (you)" : ""}</div>
           <span class="transfer-arrow" aria-hidden="true">→</span>
-          <div class="transfer-person">${MB.avatarHtml(to, "")}<span>${escapeHtml(toName)}${t.to.id === ctx.uid ? " (you)" : ""}</span></div>
+          <div class="transfer-person">${MB.personChip(to, members, "avatar-row")}${t.to.id === ctx.uid ? " (you)" : ""}</div>
         </div>
         <p class="transfer-amt">${escapeHtml(formatMoney(t.amount))}</p>
         <div class="btn-row">
@@ -97,7 +97,7 @@
       return `<div class="list-item">
         <div class="item-icon">₹</div>
         <div>
-          <div class="item-title">${escapeHtml(MB.displayName(s.from_user, members))} paid ${escapeHtml(MB.displayName(s.to_user, members))}</div>
+          <div class="item-title">${MB.personChip(s.from_user, members, "avatar-sm")} paid ${MB.personChip(s.to_user, members, "avatar-sm")}</div>
           <div class="item-sub">${escapeHtml(MB.friendlyDate(s.date))}${s.note ? " · " + escapeHtml(s.note) : ""}${status}</div>
           ${canConfirm ? `<button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}" data-force="${force ? "1" : "0"}">${force ? "Mark as received" : "Mark as received"}</button>` : ""}
         </div>

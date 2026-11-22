@@ -44,9 +44,9 @@
     const rows = data || [];
     $("notif-list").innerHTML = rows.length ? rows.map((n) => `
       <a class="list-item notif-item ${n.read_at ? "" : "is-unread"}" href="${escapeHtml(n.link || "dashboard.html")}" data-id="${escapeHtml(n.id)}">
-        ${MB.avatarHtml({ display_name: n.title }, "")}
+        ${MB.avatarHtml({ id: n.actor_id || n.from_user || n.body, display_name: n.title, avatar_url: n.actor_avatar || n.avatar_url }, "avatar-row")}
         <div>
-          <div class="item-title">${escapeHtml(n.title)}</div>
+          <div class="item-title">${n.actor_id ? MB.personChip({ id: n.actor_id, display_name: n.title, avatar_url: n.actor_avatar || n.avatar_url }, null, "avatar-sm") : escapeHtml(n.title)}</div>
           <div class="item-sub">${escapeHtml(n.body || "")} ${n.body ? "· " : ""}${escapeHtml(timeLabel(n.created_at))}</div>
         </div>
       </a>`).join("") : MB.emptyState({ emoji: "🔔", title: "No notifications yet", text: "You'll see join requests, share requests, and payment updates here." });

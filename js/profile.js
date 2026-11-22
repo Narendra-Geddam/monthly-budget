@@ -4,16 +4,46 @@
   async function main() {
     const ctx = await MB.bootApp({ title: "Profile" });
     if (!ctx) return;
-    $("profile-name").value = ctx.profile.display_name || "";
-    $("profile-email").textContent = ctx.session.user.email || "";
+    const email = (ctx.session && ctx.session.user && ctx.session.user.email) || "";
+    const fallbackName = ctx.profile.display_name || (email ? email.split("@")[0] : "You");
+    $("profile-name").value = ctx.profile.display_name || fallbackName;
+    const heading = $("profile-display-name");
+    if (heading) heading.textContent = fallbackName;
+    $("profile-email").textContent = email;
+    $("profile-email").hidden = !email;
+    document.querySelectorAll("[data-panel]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const panel = $("panel-" + btn.getAttribute("data-panel"));
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+      });
+    });
+    const themeRow = $("theme-row");
+    const themeSub = $("theme-row-sub");
+    const paintTheme = () => { if (themeSub) themeSub.textContent = (MB.currentTheme() === "light" ? "Light" : "Dark") + " theme · tap to switch"; };
+    paintTheme();
+    if (themeRow) themeRow.addEventListener("click", () => {
+      MB.setTheme(MB.currentTheme() === "dark" ? "light" : "dark");
+      paintTheme();
+    });
+    const inRoom = !!(ctx.room && ctx.room.id);
+    ["row-defaults", "row-leave", "row-invite"].forEach((id) => {
+      const el = $(id);
+      if (el && !inRoom) el.hidden = true;
+    });
+    const roomsRow = $("row-rooms");
+    if (roomsRow && ctx.rooms && !ctx.rooms.length && !inRoom) roomsRow.querySelector(".row-sub").textContent = "Join or create a room";
     $("profile-phone").value = ctx.profile.phone || "";
     $("profile-upi").value = ctx.profile.upi_id || "";
     $("profile-currency").innerHTML = MB.CURRENCIES.map((c) => `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join("");
     $("profile-currency").value = MB.currency;
     const preview = $("avatar-preview");
     preview.innerHTML = ctx.profile.avatar_url
-      ? `<img src="${escapeHtml(ctx.profile.avatar_url)}" alt="">`
-      : escapeHtml(MB.initials(ctx.profile.display_name));
+      ? `<img src="${escapeHtml(ctx.profile.avatar_url)}" alt="" loading="lazy">`
+      : escapeHtml(MB.initials(fallbackName));
+    if (!ctx.profile.avatar_url && MB.avatarHue) {
+      preview.style.setProperty("--avatar-hue", String(MB.avatarHue(ctx.uid || fallbackName)));
+    }
     if (ctx.profile.avatar_url) preview.className = "avatar avatar-lg";
     $("profile-avatar").addEventListener("change", async (ev) => {
       const file = ev.target.files && ev.target.files[0];
@@ -52,6 +82,7 @@
       MB.setCurrency(currency);
       $("profile-ok").hidden = false;
       $("profile-ok").textContent = "Saved.";
+      if ($("profile-display-name")) $("profile-display-name").textContent = name;
       MB.paintHeaderAvatar(data || { display_name: name, avatar_url: ctx.profile.avatar_url });
     });
     MB.bindPasswordRules({ passwordId: "new-password", confirmId: "new-password-confirm", hintId: "pw-hint", matchId: "pw-match", min: 8 });

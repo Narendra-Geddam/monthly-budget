@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#0B1914" />
+  <meta name="theme-color" content="#10150C" />
   <meta name="color-scheme" content="dark light" />
   <title>Dashboard · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -12,7 +12,8 @@
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script>
     (function () {
@@ -21,7 +22,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#E6F7F0" : "#0B1914");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#10150C");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>
@@ -38,7 +39,7 @@
         <p class="card-sub" id="hero-sub">This is what you need to pay, or what is coming back to you, after accepted shares.</p>
         <div class="btn-row" id="hero-actions">
           <a class="primary-btn" href="settle.html">Settle up</a>
-          <a class="secondary-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind via WhatsApp</a>
+          <a class="secondary-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind</a>
         </div>
       </section>
       <section class="card month-card" id="month-card">
@@ -47,7 +48,7 @@
             <h2>This month</h2>
             <p class="card-sub month-sentence" id="month-sentence">Loading this month’s spending…</p>
           </div>
-          <a href="analytics.html">Analytics</a>
+          <a class="see-all" href="analytics.html">See all</a>
         </header>
         <div class="budget-bar" id="month-progress" hidden aria-hidden="true"><span id="budget-fill"></span></div>
         <p class="month-share" id="month-share"></p>
@@ -102,7 +103,7 @@
             <h2>Waiting for you</h2>
             <p class="card-sub">Accept or decline your share of a roommate's expense. Only accepted shares count toward balances.</p>
           </div>
-          <a href="requests.html">See all</a>
+          <a class="see-all" href="requests.html">See all</a>
         </header>
         <div id="pending-list"></div>
       </section>
@@ -112,13 +113,14 @@
             <h2>My share</h2>
             <p class="card-sub">What you paid, and the part of each bill that belongs to you.</p>
           </div>
-          <a href="my-share.html">Details</a>
+          <a class="see-all" href="my-share.html">See all</a>
         </header>
         <section class="summary-grid mine" aria-label="My totals">
-          <article class="stat"><p class="label">I paid</p><p class="value" id="stat-paid">₹0</p></article>
-          <article class="stat"><p class="label">My share</p><p class="value" id="stat-share">₹0</p></article>
+          <article class="stat is-paid"><p class="label">I paid</p><p class="value" id="stat-paid">₹0</p></article>
+          <article class="stat is-share"><p class="label">My share</p><p class="value" id="stat-share">₹0</p></article>
           <article class="stat" id="stat-net-card"><p class="label">My balance</p><p class="value" id="stat-net">Settled up</p></article>
         </section>
+        <p class="stat-note" id="stat-net-note" hidden></p>
         <h3 style="margin:16px 0 8px">Accepted shares</h3>
         <div class="list" id="my-accepted-list"></div>
       </section>

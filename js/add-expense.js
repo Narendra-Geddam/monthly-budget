@@ -49,7 +49,7 @@
       panel.innerHTML = (editing.splits || []).map((s) => {
         const m = members.find((x) => x.id === s.user_id);
         const name = (m && m.display_name) || "Member";
-        return `<div class="split-status-row"><span>${escapeHtml(name)}</span><span>${escapeHtml(formatMoney(s.share_amount))}</span><span class="status-pill is-${escapeHtml(s.status || "pending")}">${escapeHtml(MB.splitStatusLabel(s.status))}</span></div>`;
+        return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "avatar-sm")}<span>${escapeHtml(formatMoney(s.share_amount))}</span><span class="status-pill is-${escapeHtml(s.status || "pending")}">${escapeHtml(MB.splitStatusLabel(s.status))}</span></div>`;
       }).join("");
     }
   }
@@ -63,7 +63,7 @@
         (editing.splits || []).forEach((s) => { current[s.user_id] = s.share_amount; });
       }
       host.innerHTML = `<div class="split-rows">${members.map((m) => `
-        <label class="split-row"><span>${escapeHtml(m.display_name)}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span>
+        <label class="split-row"><span>${MB.personChip(m, members, "avatar-sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span>
         <input type="number" min="0" step="0.01" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" /></label>`).join("")}</div>
         <p class="card-sub" id="split-sum"></p>`;
       host.querySelectorAll("[data-custom-id]").forEach((el) => el.addEventListener("input", updateSplitSum));
@@ -76,7 +76,7 @@
       const share = shares.find((s) => s.user_id === m.id);
       const checked = ids.includes(m.id) ? "checked" : "";
       const box = splitMode === "selected" ? `<input type="checkbox" data-split-id="${escapeHtml(m.id)}" ${checked} />` : "";
-      return `<label class="chip">${box}<span>${escapeHtml(m.display_name)}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span><strong>${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
+      return `<label class="chip">${box}<span>${MB.personChip(m, members, "avatar-sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span><strong>${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
     }).join("");
     if (splitMode === "selected") {
       host.querySelectorAll("[data-split-id]").forEach((el) => el.addEventListener("change", renderSplitUi));
@@ -482,6 +482,75 @@
     if (params.get("scan") === "1" && scan) scan.click();
   }
 
+
+  function setTxTab(tab) {
+    document.querySelectorAll("[data-tx-tab]").forEach((btn) => btn.classList.toggle("is-active", btn.getAttribute("data-tx-tab") === tab));
+    const updates = $("tx-updates");
+    const form = $("expense-form");
+    if (updates) updates.hidden = tab !== "updates";
+    if (form) form.hidden = tab !== "details";
+  }
+
+  function paintTxDetail() {
+    const hero = $("tx-hero");
+    const tabs = $("tx-tabs");
+    const title = $("add-page-title");
+    const timeline = $("tx-timeline");
+    if (!editing) {
+      if (hero) hero.hidden = true;
+      if (tabs) tabs.hidden = true;
+      if (title) title.hidden = false;
+      if ($("tx-updates")) $("tx-updates").hidden = true;
+      if ($("expense-form")) $("expense-form").hidden = false;
+      return;
+    }
+    if (title) title.hidden = true;
+    if (hero) {
+      hero.hidden = false;
+      $("tx-hero-kicker").textContent = editing.category || (editing.personal ? "Personal" : "Expense");
+      $("tx-hero-amount").textContent = formatMoney(editing.amount);
+      const payer = editing.personal ? null : MB.memberRecord(editing.paid_by, members);
+      $("tx-hero-sub").innerHTML = editing.personal
+        ? (MB.friendlyDate(editing.date) || "")
+        : ("Paid by " + MB.personChip(payer, members, "avatar-sm") + " · " + MB.escapeHtml(MB.friendlyDate(editing.date) || ""));
+    }
+    if (tabs) {
+      tabs.hidden = false;
+      if (!tabs.dataset.bound) {
+        tabs.dataset.bound = "1";
+        tabs.querySelectorAll("[data-tx-tab]").forEach((btn) => {
+          btn.addEventListener("click", () => setTxTab(btn.getAttribute("data-tx-tab")));
+        });
+      }
+    }
+    if (timeline) {
+      const splits = editing.splits || [];
+      if (!splits.length) {
+        timeline.innerHTML = `<li class="is-pending"><span class="tl-icon"></span><div class="tl-body">No split updates yet.</div></li>`;
+      } else {
+        const created = editing.created_at || editing.date;
+        const rows = [];
+        rows.push(`<li class="is-done"><span class="tl-icon">✓</span><div class="tl-body"><strong>${escapeHtml(editing.description || "Expense")} added</strong><span class="tl-time">${escapeHtml(MB.friendlyDate(created) || "")}</span></div></li>`);
+        splits.forEach((s) => {
+          const person = MB.memberRecord(s.user_id, members);
+          const st = s.status || "pending";
+          const when = s.responded_at || s.forced_at || "";
+          let line = MB.personChip(person, members, "avatar-sm");
+          if (st === "accepted") line += s.forced_by ? " was marked as accepted" : " accepted their share";
+          else if (st === "declined") line += " declined their share";
+          else line += " hasn\u2019t accepted yet";
+          line += " · " + escapeHtml(formatMoney(s.share_amount));
+          rows.push(`<li class="is-${st === "accepted" ? "done" : st}"><span class="tl-icon">${st === "accepted" ? "✓" : (st === "declined" ? "!" : "")}</span><div class="tl-body"><div>${line}</div>${when ? `<span class="tl-time">${escapeHtml(MB.friendlyDate(String(when).slice(0,10)))}</span>` : ""}</div></li>`);
+        });
+        timeline.innerHTML = rows.join("");
+      }
+    }
+    const save = $("exp-save");
+    if (save) { save.classList.add("forest-btn"); save.classList.remove("primary-btn"); }
+    setTxTab("updates");
+  }
+
+
   async function main() {
     const params = new URLSearchParams(location.search);
     const id = params.get("id");
@@ -576,7 +645,7 @@
           host.innerHTML = "<h3>Force-accept shares</h3>" + pending.map((s) => {
             const m = members.find((x) => x.id === s.user_id);
             const name = (m && m.display_name) || "Member";
-            return `<div class="split-status-row"><span>${escapeHtml(name)} · ${escapeHtml(formatMoney(s.share_amount))} · ${escapeHtml(MB.splitStatusLabel(s.status))}</span><button type="button" class="text-btn" data-force="${escapeHtml(s.user_id)}">Mark as accepted</button></div>`;
+            return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "avatar-sm")}<span>${escapeHtml(formatMoney(s.share_amount))} · ${escapeHtml(MB.splitStatusLabel(s.status))}</span><button type="button" class="text-btn" data-force="${escapeHtml(s.user_id)}">Mark as accepted</button></div>`;
           }).join("");
           host.querySelectorAll("[data-force]").forEach((btn) => {
             btn.addEventListener("click", async () => {
@@ -602,6 +671,7 @@
     $("exp-delete").addEventListener("click", removeExpense);
     refreshStatusPanel();
     renderSplitUi();
+    paintTxDetail();
     await setupExtras(ctx);
   }
   main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });

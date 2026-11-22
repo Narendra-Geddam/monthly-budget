@@ -11,8 +11,7 @@
       $("room-code").textContent = ctx.room.code;
       const members = await MB.loadMembers(ctx.room.id);
       $("member-list").innerHTML = members.map((m) => `<div class="list-item">
-        ${MB.avatarHtml(m, "item-icon")}
-        <div><div class="item-title">${escapeHtml(m.display_name)}${m.id === ctx.uid ? " (you)" : ""}</div>
+        <div><div class="item-title">${MB.personChip(m, members, "avatar-row")}${m.id === ctx.uid ? " (you)" : ""}</div>
         <div class="item-sub">${escapeHtml(MB.roleLabel(m.role))}</div></div>
       </div>`).join("");
       $("copy-code").addEventListener("click", async () => {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#0B1914" />
+  <meta name="theme-color" content="#10150C" />
   <meta name="color-scheme" content="dark light" />
   <title>My share · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -12,7 +12,8 @@
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script>
     (function () {
@@ -21,7 +22,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#E6F7F0" : "#0B1914");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#10150C");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>
@@ -33,10 +34,11 @@
     <div id="content">
       <p class="card card-sub" id="pending-note" hidden></p>
       <section class="summary-grid">
-        <article class="card stat"><p class="label">I paid</p><p class="value" id="stat-paid">₹0.00</p></article>
-        <article class="card stat"><p class="label">My share</p><p class="value" id="stat-share">₹0.00</p></article>
+        <article class="card stat is-paid"><p class="label">I paid</p><p class="value" id="stat-paid">₹0.00</p></article>
+        <article class="card stat is-share"><p class="label">My share</p><p class="value" id="stat-share">₹0.00</p></article>
         <article class="card stat" id="stat-net-card"><p class="label">My balance</p><p class="value" id="stat-net">Settled up</p></article>
       </section>
+      <p class="stat-note" id="stat-net-note" hidden></p>
       <section class="card">
         <header class="card-head"><div><h3>Who I owe / who owes me</h3><p class="card-sub">A simple picture of this month's outstanding balances.</p></div></header>
         <div id="owe-list"></div>
