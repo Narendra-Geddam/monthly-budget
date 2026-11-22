@@ -1634,7 +1634,7 @@
   }
   function injectFab() {
     const page = currentPage();
-    if (!["dashboard.html", "expenses.html", "personal.html", "activity.html"].includes(page)) return;
+    if (!["dashboard.html", "expenses.html", "activity.html"].includes(page)) return;
     if (document.getElementById("fab-root")) return;
     const scan = page === "personal.html" ? "add-expense.html?kind=personal&scan=1" : "add-expense.html?scan=1";
     const room = "add-expense.html?kind=room";

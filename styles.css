@@ -52,6 +52,8 @@
   --radius-sm: 12px;
   --nav-h: 64px;
   --bottom-nav-h: 72px;
+  --fab-size: 56px;
+  --page-fab-clearance: calc(var(--fab-size) + 24px);
   --space: 16px;
   --space-sm: 12px;
   --space-xs: 8px;
@@ -209,7 +211,7 @@ a:hover { text-decoration: underline; }
 .page {
   width: min(1120px, 100%);
   margin: 0 auto;
-  padding: var(--space) var(--space) calc(var(--bottom-nav-h) + 88px + env(safe-area-inset-bottom));
+  padding: var(--space) var(--space) calc(var(--bottom-nav-h) + var(--page-fab-clearance) + env(safe-area-inset-bottom, 0px));
   padding-left: max(var(--space), env(safe-area-inset-left));
   padding-right: max(var(--space), env(safe-area-inset-right));
   display: flex; flex-direction: column; gap: var(--space);
@@ -350,8 +352,6 @@ html[data-theme="light"] .primary-btn:hover { color: var(--on-accent); backgroun
   flex-direction: column;
   gap: 10px;
   margin-top: 16px;
-  /* Keep full-width save actions clear of the FAB */
-  padding-bottom: 64px;
 }
 .form-actions .primary-btn,
 .form-actions .secondary-btn,
@@ -522,7 +522,7 @@ dialog::backdrop { background: rgba(8,10,8,.62); }
   .top-actions { grid-area: actions; }
   .topbar .profile-link { display: inline-flex; }
   .bottom-nav { display: none; }
-  .page { padding-bottom: 48px; }
+  .page { padding-bottom: calc(var(--page-fab-clearance) + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (min-width: 1024px) and (max-width: 1439px) {
