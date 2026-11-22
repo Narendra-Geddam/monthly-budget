@@ -360,13 +360,27 @@
     return window.Tesseract;
   }
 
+
+  function fillCurrencySelect(roomCur) {
+    const cur = roomCur || (MB.currency) || "INR";
+    const sel = $("exp-currency");
+    if ($("amount-currency-label")) $("amount-currency-label").textContent = cur;
+    if (!sel) return cur;
+    const codes = (MB.CURRENCIES || []).map((c) => c.code);
+    if (!codes.includes(cur)) codes.unshift(cur);
+    if (!sel.dataset.filled || sel.options.length < codes.length) {
+      sel.innerHTML = codes.map((code) => `<option value="${escapeHtml(code)}">${escapeHtml(code)}</option>`).join("");
+      sel.dataset.filled = "1";
+    }
+    sel.value = cur;
+    sel.setAttribute("aria-label", "Currency, " + cur);
+    return cur;
+  }
+
   async function setupExtras(ctx) {
-    const roomCur = (ctx.room && ctx.room.currency) || MB.currency || "INR";
+    const roomCur = fillCurrencySelect((ctx.room && ctx.room.currency) || MB.currency || "INR");
     window._mbRoomCurrency = roomCur;
-    if ($("amount-currency-label")) $("amount-currency-label").textContent = roomCur;
     if ($("exp-currency")) {
-      $("exp-currency").innerHTML = MB.CURRENCIES.map((c) => `<option value="${c.code}">${c.code}</option>`).join("");
-      $("exp-currency").value = roomCur;
       const syncFx = async () => {
         const from = $("exp-currency").value;
         $("fx-rate-field").hidden = from === roomCur;
@@ -500,11 +514,13 @@
       if (hero) hero.hidden = true;
       if (tabs) tabs.hidden = true;
       if (title) title.hidden = false;
+      if ($("kind-toggle")) $("kind-toggle").hidden = false;
       if ($("tx-updates")) $("tx-updates").hidden = true;
       if ($("expense-form")) $("expense-form").hidden = false;
       return;
     }
     if (title) title.hidden = true;
+    if ($("kind-toggle")) $("kind-toggle").hidden = true;
     if (hero) {
       hero.hidden = false;
       $("tx-hero-kicker").textContent = editing.category || (editing.personal ? "Personal" : "Expense");
@@ -557,6 +573,7 @@
     const initialKind = (params.get("kind") === "personal" || params.get("mode") === "personal") ? "personal" : "room";
     const ctx = await MB.bootApp({ title: id ? "Edit expense" : "Add expense", keepMonth: initialKind === "personal" });
     if (!ctx) return;
+    fillCurrencySelect((ctx.room && ctx.room.currency) || (ctx.profile && ctx.profile.currency) || MB.currency || "INR");
 
     document.querySelectorAll("#kind-toggle [data-kind]").forEach((btn) => {
       btn.addEventListener("click", () => {

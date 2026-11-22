@@ -1044,7 +1044,35 @@ html[data-theme="light"] .filter-chip.is-active { color: var(--accent-strong); b
   font-feature-settings: "tnum";
 }
 .hero-line { font-size: clamp(1.45rem, 6vw, 1.9rem); letter-spacing: -0.04em; line-height: 1.15; }
-.hero-line .person { font-weight: 800; }
+.hero-line {
+  display: block;
+}
+.hero-line .person {
+  display: inline;
+  margin: 0;
+  max-width: none;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.hero-line .person .avatar,
+.hero-line .person .avatar-fallback {
+  display: inline-flex;
+  vertical-align: -0.15em;
+  margin-right: 0.3em;
+}
+.hero-line .person-name {
+  display: inline;
+  overflow: visible;
+  text-overflow: unset;
+  font-weight: 800;
+}
+.nowrap { white-space: nowrap; }
+.hero-note { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin: 6px 0 0; }
+.hero-status .info-tip {
+  display: inline-flex;
+  vertical-align: -0.2em;
+  margin: 0 0 0 2px;
+}
 
 .stat.is-paid, .stat.is-income { background: var(--tint-paid); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); }
 .stat.is-share, .stat.is-spent { background: var(--tint-share); border: 1px solid color-mix(in srgb, var(--muted) 28%, var(--border)); }
@@ -1072,9 +1100,10 @@ html[data-theme="light"] .filter-chip.is-active { color: var(--accent-strong); b
 .hero-remind, #hero-remind { gap: 8px; }
 
 @media (max-width: 520px) {
-  .info-tip { display: inline; }
-  .info-tip[open] { display: block; margin: 8px 0 0; }
-  .info-tip p {
+  .info-tip { display: inline-flex; vertical-align: middle; margin-left: 4px; }
+  .info-tip[open] { display: inline; }
+  .info-tip[open] p {
+    display: block;
     position: static; left: auto; top: auto; transform: none;
     width: auto; max-width: none; margin: 8px 0 0;
   }
@@ -1277,4 +1306,12 @@ html[data-theme="light"] .fab-scrim { background: rgba(22, 51, 0, 0.36); }
 }
 
 .profile-page .topbar, .profile-page .app-chrome { border-bottom: 0; box-shadow: none; }
-.hero-line .person { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; }
+.hero-line .person { display: inline; margin: 0; }
+
+@media (max-width: 520px) {
+  .summary-grid.mine { padding-bottom: 4px; }
+  #stat-net-card .value { position: relative; z-index: 1; }
+  #dash-content .stat-note, .hero-note, .summary-grid.mine + .stat-note {
+    padding-right: 72px;
+  }
+}

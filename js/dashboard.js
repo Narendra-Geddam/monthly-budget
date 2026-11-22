@@ -259,11 +259,15 @@
       }
       const sub = $("hero-sub");
       if (sub) {
-        const note = MB.balanceFootnote(mine);
-        const base = hero.direction === "settled"
+        sub.innerHTML = hero.direction === "settled"
           ? "No one in this room owes anyone for this month."
-          : "Based on accepted shares this month. " + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.");
-        sub.innerHTML = base + (note ? " " + MB.escapeHtml(note) : "");
+          : 'Based on accepted shares <span class="nowrap">this month. ' + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.") + "</span>";
+      }
+      const heroNote = $("hero-note");
+      if (heroNote) {
+        const note = MB.balanceFootnote(mine);
+        heroNote.hidden = !note;
+        heroNote.textContent = note || "";
       }
       const remind = $("hero-remind");
       if (remind) {
