@@ -112,10 +112,12 @@ html[data-theme="light"] {
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; background-color: var(--bg); }
 html, body { max-width: 100%; overflow-x: hidden; background-color: var(--bg); }
+html { min-height: 100%; min-height: 100dvh; min-height: 100svh; }
 body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: 100svh;
   font-family: var(--font-sans);
   background:
     radial-gradient(1200px 500px at 10% -10%, var(--bg-accent), transparent 55%),

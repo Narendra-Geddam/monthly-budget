@@ -41,12 +41,16 @@
     return location.origin + withBase(file) + extra;
   }
 
+  const MANIFEST_HREF = "manifest.json?v=19";
   function registerPwa() {
     try {
-      if (!document.querySelector('link[rel="manifest"]')) {
+      const manifestHref = withBase(MANIFEST_HREF);
+      const existingManifest = document.querySelector('link[rel="manifest"]');
+      if (existingManifest) existingManifest.href = manifestHref;
+      else {
         const link = document.createElement("link");
         link.rel = "manifest";
-        link.href = "manifest.json";
+        link.href = manifestHref;
         document.head.appendChild(link);
       }
       if (!document.querySelector('link[rel="apple-touch-icon"]')) {
@@ -56,7 +60,39 @@
         document.head.appendChild(link);
       }
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register(withBase("sw.js"), { scope: (siteBase() || "") + "/", updateViaCache: "none" }).then((reg) => { try { reg.update(); } catch (e) {} }).catch(() => {});
+        const promptSkip = (worker) => {
+          try { if (worker) worker.postMessage({ type: "SKIP_WAITING" }); } catch (e) { /* ignore */ }
+        };
+        const checkUpdate = (reg) => {
+          if (!reg) return;
+          try { reg.update(); } catch (e) { /* ignore */ }
+          if (reg.waiting) promptSkip(reg.waiting);
+        };
+        // If a controller is already in place, a later controllerchange means a new SW just took over — reload so the user gets the new HTML/JS, not the in-memory stale page.
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            location.reload();
+          });
+        }
+        navigator.serviceWorker.register(withBase("sw.js"), {
+          scope: (siteBase() || "") + "/",
+          updateViaCache: "none",
+        }).then((reg) => {
+          checkUpdate(reg);
+          reg.addEventListener("updatefound", () => {
+            const next = reg.installing;
+            if (!next) return;
+            next.addEventListener("statechange", () => {
+              if (next.state === "installed") promptSkip(next);
+            });
+          });
+        }).catch(() => {});
+        const onVisible = () => {
+          if (document.visibilityState && document.visibilityState !== "visible") return;
+          navigator.serviceWorker.getRegistration().then(checkUpdate).catch(() => {});
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        window.addEventListener("pageshow", (ev) => { if (ev.persisted) onVisible(); });
         navigator.serviceWorker.addEventListener("message", (ev) => {
           const data = ev.data || {};
           if (data.type === "mb-push-received") {
@@ -173,8 +209,14 @@
     return THEME_CHROME[theme] || THEME_CHROME.dark;
   }
   function applyThemeColor(theme) {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", themeChromeColor(theme));
+    const color = themeChromeColor(theme);
+    let meta = document.querySelector('meta[name="theme-color"]:not([media])');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "theme-color");
+      document.head.insertBefore(meta, document.head.firstChild);
+    }
+    meta.setAttribute("content", color);
   }
   function applyThemeEarly() {
     try {

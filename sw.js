@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v18";
+const SHELL_CACHE = "mb-shell-v19";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -29,9 +29,13 @@ function withBase(path) {
   return (BASE || "") + "/" + String(path).replace(/^\/+/, "");
 }
 
-function isHtmlOrJs(pathname) {
+function isServiceWorkerFile(pathname) {
+  return pathname.endsWith("/sw.js") || pathname.endsWith("sw.js");
+}
+function isNetworkFirst(pathname) {
   return pathname === "/" || pathname === BASE || pathname === BASE + "/" ||
-    pathname.endsWith(".html") || pathname.endsWith(".js") || pathname.endsWith("/sw.js");
+    pathname.endsWith(".html") || pathname.endsWith(".js") ||
+    pathname.endsWith("manifest.json");
 }
 
 self.addEventListener("install", (event) => {
@@ -50,15 +54,21 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/.netlify/")) return;
+  // Never intercept the SW script itself — a cached sw.js would prevent updates.
+  if (isServiceWorkerFile(url.pathname)) return;
   event.respondWith((async () => {
     const cache = await caches.open(SHELL_CACHE);
-    if (isHtmlOrJs(url.pathname)) {
+    if (isNetworkFirst(url.pathname)) {
       try {
         const res = await fetch(req, { cache: "no-store" });
         if (res && res.ok) cache.put(req, res.clone()).catch(() => {});
