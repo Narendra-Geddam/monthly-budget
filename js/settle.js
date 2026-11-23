@@ -45,7 +45,8 @@
         $("pay-date").value = MB.todayISO();
         paintUpi();
         $("pay-form").scrollIntoView({ behavior: "smooth", block: "start" });
-        $("pay-note").focus();
+        if ($("pay-note")) $("pay-note").focus();
+        if ($("pay-proof-hint")) $("pay-proof-hint").textContent = "Optional. Attach a UPI, GPay, or bank screenshot of this payment.";
       });
     });
 
@@ -72,6 +73,28 @@
     $("pay-amount").addEventListener("input", paintUpi);
     paintUpi();
 
+    let proofBlob = null;
+    const proofInput = $("pay-proof");
+    const proofPreview = $("pay-proof-preview");
+    if (proofInput) {
+      proofInput.addEventListener("change", async (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        ev.target.value = "";
+        if (!file) return;
+        hideError("pay-error");
+        try {
+          proofBlob = await MB.compressImage(file, 1280, 0.8, { fit: true });
+          if (proofPreview) {
+            proofPreview.src = URL.createObjectURL(proofBlob);
+            proofPreview.hidden = false;
+          }
+        } catch (err) {
+          proofBlob = null;
+          showError("pay-error", errorMessage(err) || "Could not read that screenshot. Try a JPEG or PNG.");
+        }
+      });
+    }
+
     $("pay-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       hideError("pay-error");
@@ -82,28 +105,54 @@
       const note = $("pay-note").value.trim();
       if (from === to) return showError("pay-error", "Choose two different people.");
       if (!amount || amount <= 0) return showError("pay-error", "Enter an amount greater than zero.");
-      const { error } = await MB.client().rpc("record_settlement", {
-        p_room_id: ctx.room.id, p_from: from, p_to: to, p_amount: amount, p_date: date, p_note: note || null,
-      });
-      if (error) return showError("pay-error", errorMessage(error));
-      location.reload();
+      let proofPath = null;
+      try {
+        if (proofBlob) {
+          proofPath = ctx.room.id + "/" + Date.now() + "-payment.jpg";
+          const { error: upErr } = await MB.client().storage.from("receipts").upload(proofPath, proofBlob, {
+            upsert: true,
+            contentType: "image/jpeg",
+            cacheControl: "3600",
+          });
+          if (upErr) throw upErr;
+        }
+        const { error } = await MB.client().rpc("record_settlement", {
+          p_room_id: ctx.room.id, p_from: from, p_to: to, p_amount: amount, p_date: date, p_note: note || null,
+          p_proof_path: proofPath,
+        });
+        if (error) throw error;
+        location.reload();
+      } catch (err) {
+        showError("pay-error", errorMessage(err));
+        if (MB.showToast) MB.showToast(errorMessage(err), "error");
+      }
     });
 
-    $("history").innerHTML = settlements.length ? settlements.map((s) => {
+    const historyBits = await Promise.all((settlements || []).map(async (s) => {
       const pending = s.status === "pending";
       const canConfirm = pending && (s.to_user === ctx.uid || ctx.isAdmin);
       const status = pending ? " · waiting to be marked received" : " · confirmed";
       const force = pending && ctx.isAdmin && s.to_user !== ctx.uid;
+      let thumb = "";
+      if (s.proof_path) {
+        try {
+          const url = await MB.signedReceiptUrl(s.proof_path);
+          thumb = url ? MB.proofThumbHtml(url, "Payment screenshot") : "";
+        } catch (e) { thumb = ""; }
+      }
       return `<div class="list-item">
         <div class="item-icon">₹</div>
         <div>
           <div class="item-title">${MB.personChip(s.from_user, members, "avatar-sm")} paid ${MB.personChip(s.to_user, members, "avatar-sm")}</div>
           <div class="item-sub">${escapeHtml(MB.friendlyDate(s.date))}${s.note ? " · " + escapeHtml(s.note) : ""}${status}</div>
-          ${canConfirm ? `<button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}" data-force="${force ? "1" : "0"}">${force ? "Mark as received" : "Mark as received"}</button>` : ""}
+          ${thumb}
+          ${canConfirm ? `<button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}" data-force="${force ? "1" : "0"}">Mark as received</button>` : ""}
         </div>
         <div class="item-amt ${pending ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
       </div>`;
-    }).join("") : MB.emptyState({ emoji: "💸", title: "No payments yet", text: "When someone pays a roommate, the record will show up here." });
+    }));
+    $("history").innerHTML = historyBits.length ? historyBits.join("") : MB.emptyState({ emoji: "💸", title: "No payments yet", text: "When someone pays a roommate, the record will show up here." });
+    if (MB.bindProofLightbox) MB.bindProofLightbox($("history"));
     $("history").querySelectorAll("[data-confirm]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const { error } = await MB.client().rpc("confirm_settlement", {

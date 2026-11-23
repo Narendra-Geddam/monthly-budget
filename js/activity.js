@@ -227,11 +227,13 @@
             const href = hrefFor(row);
             const roomBit = row.room_name && scope === "all" ? `<span class="item-sub-room">${escapeHtml(row.room_name)}</span>` : "";
             const chip = imp ? `<span class="item-amt ${imp.cls === "is-good" ? "pos" : (imp.cls === "is-bad" ? "neg" : "")}" title="${escapeHtml(imp.label || "")}">${escapeHtml(imp.text)}</span>` : "";
+            const thumb = row._proofUrl ? MB.proofThumbHtml(row._proofUrl, "Payment screenshot") : "";
             return `<a class="list-item activity-item" href="${escapeHtml(href)}">
               ${media(row)}
               <div>
                 <div class="item-title">${sentence(row)}</div>
                 <div class="item-sub">${escapeHtml(relativeTime(row.created_at))}${roomBit ? " · " + roomBit : ""}</div>
+                ${thumb}
               </div>
               ${chip}
             </a>`;
@@ -239,6 +241,7 @@
         </div>
       </section>`).join("");
     $("activity-more-wrap").hidden = !hasMore;
+    if (MB.bindProofLightbox) MB.bindProofLightbox(host);
   }
 
   function paintChips() {
@@ -303,6 +306,16 @@
           if (!r.actor_avatar) r.actor_avatar = pr.avatar_url;
           if (!r.actor_name) r.actor_name = pr.display_name;
         });
+      }
+      const settleIds = [...new Set(batch.filter((r) => r.target_type === "settlement" && r.target_id).map((r) => r.target_id))];
+      if (settleIds.length) {
+        const { data: settles } = await MB.client().from("settlements").select("id, proof_path").in("id", settleIds);
+        const pathById = new Map((settles || []).map((s) => [s.id, s.proof_path]));
+        await Promise.all(batch.map(async (r) => {
+          const path = (detail(r) && detail(r).proof_path) || pathById.get(r.target_id);
+          if (!path) return;
+          try { r._proofUrl = await MB.signedReceiptUrl(path); } catch (e) { r._proofUrl = ""; }
+        }));
       }
       if (reset) items = batch;
       else items = items.concat(batch);

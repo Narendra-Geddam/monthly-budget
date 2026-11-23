@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v19";
+const SHELL_CACHE = "mb-shell-v20";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -62,7 +62,8 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) return; // includes Supabase storage avatars
+  if (/\/storage\/v1\//.test(url.pathname) || /\/avatars\//.test(url.pathname)) return;
   if (url.pathname.startsWith("/.netlify/")) return;
   // Never intercept the SW script itself — a cached sw.js would prevent updates.
   if (isServiceWorkerFile(url.pathname)) return;

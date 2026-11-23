@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=19";
+  const MANIFEST_HREF = "manifest.json?v=20";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -112,6 +112,8 @@
   const PENDING_CODE_KEY = "monthly-budget-pending-code";
 
   const CATEGORIES = ["Rent", "Groceries", "Electricity", "Water", "Internet", "Gas", "Food/Outing", "Maid", "Other"];
+  const PERSONAL_EXPENSE_CATS = ["Groceries", "Food/Outing", "Transport", "Shopping", "Health", "Entertainment", "Subscriptions", "Rent", "Electricity", "Water", "Internet", "Gas", "Maid", "Other"];
+  const INCOME_CATS = ["Salary", "Freelance", "Refund", "Gift", "Interest", "Other"];
   const CAT_COLOR_TOKENS = {
     Rent: "--cat-indigo",
     Groceries: "--cat-green",
@@ -536,7 +538,7 @@
     const { start, end } = monthBounds(month);
     const [exRes, setRes] = await Promise.all([
       client().from("room_expenses").select("id, room_id, paid_by, created_by, amount, description, category, date, created_at, receipt_path, original_amount, original_currency, fx_rate, tax_amount, tip_amount").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
-      client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
+      client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, proof_path").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
     ]);
     if (exRes.error) throw exRes.error;
     if (setRes.error) throw setRes.error;
@@ -1079,11 +1081,34 @@
     el.hidden = false;
     el.textContent = text;
   }
+  function showToast(message, kind) {
+    const text = message || "";
+    if (!text) return;
+    let el = $("mb-toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "mb-toast";
+      el.className = "mb-toast";
+      el.setAttribute("role", "status");
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.className = "mb-toast" + (kind === "error" ? " is-error" : kind === "ok" ? " is-ok" : "");
+    el.hidden = false;
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => { el.hidden = true; }, kind === "error" ? 6000 : 2800);
+  }
   function showError(id, message) {
     const el = $(id);
-    if (!el) { showPageError(message); return; }
+    const buried = !!(el && el.closest && el.closest("[hidden]"));
+    if (!el) {
+      showToast(message, "error");
+      showPageError(message);
+      return;
+    }
     el.hidden = false;
     el.textContent = message;
+    if (buried) showToast(message, "error");
   }
   function hideError(id) {
     const el = $(id);
@@ -1415,12 +1440,33 @@
   function writeCachedState(state) {
     try { localStorage.setItem(STATE_KEY, JSON.stringify({ state: state, cachedAt: Date.now() })); } catch (e) { /* ignore */ }
   }
+  function patchProfile(partial) {
+    if (!partial) return profile;
+    profile = Object.assign({}, profile || {}, partial);
+    if (partial.currency && CURRENCIES.some((c) => c.code === partial.currency)) currency = partial.currency;
+    const cached = readCachedState();
+    if (cached && cached.state) {
+      if (cached.state.profile) cached.state.profile = Object.assign({}, cached.state.profile, partial);
+      if (Array.isArray(cached.state.members) && profile.id) {
+        cached.state.members = cached.state.members.map((m) => (m && m.id === profile.id) ? Object.assign({}, m, partial) : m);
+      }
+      writeCachedState(cached.state);
+    }
+    paintHeaderAvatar(profile);
+    return profile;
+  }
   function initials(name) {
     const s = String(name || "?").trim();
     return (s.slice(0, 1) || "?").toUpperCase();
   }
+  function bustAvatarUrl(url) {
+    if (!url) return "";
+    const u = String(url);
+    if (/[?&]v=/.test(u)) return u;
+    return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=1";
+  }
   function avatarUrlOf(person) {
-    return person && (person.avatar_url || person.actor_avatar) ? (person.avatar_url || person.actor_avatar) : "";
+    return bustAvatarUrl(person && (person.avatar_url || person.actor_avatar) ? (person.avatar_url || person.actor_avatar) : "");
   }
   function avatarHue(id) {
     const s = String(id || "");
@@ -1572,28 +1618,77 @@
     if (json && json.rates && json.rates[to]) return Number(json.rates[to]);
     throw new Error("Could not fetch an exchange rate right now.");
   }
-  function compressImage(file, size, quality) {
-    size = size || 256;
+  function compressImage(file, size, quality, opts) {
+    size = size || 512;
     quality = quality == null ? 0.82 : quality;
+    const fit = !!(opts && (opts.fit === true || opts.fit === "contain"));
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        const side = Math.min(img.width, img.height);
-        const sx = (img.width - side) / 2;
-        const sy = (img.height - side) / 2;
+      if (!file) return reject(new Error("No image selected."));
+      const type = (file.type || "").toLowerCase();
+      if (type && !type.startsWith("image/")) return reject(new Error("Please choose a photo (JPEG, PNG, or WebP)."));
+      function toJpeg(source, width, height) {
         const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        canvas.getContext("2d").drawImage(img, sx, sy, side, side, 0, 0, size, size);
-        canvas.toBlob((blob) => {
-          URL.revokeObjectURL(url);
+        const ctxSetup = () => {
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject(new Error("Could not compress the image.")), null;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          return ctx;
+        };
+        if (fit) {
+          const scale = Math.min(1, size / Math.max(width, height, 1));
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          const ctx = ctxSetup();
+          if (!ctx) return;
+          ctx.drawImage(source, 0, 0, width, height, 0, 0, canvas.width, canvas.height);
+        } else {
+          const side = Math.min(width, height) || size;
+          const sx = (width - side) / 2;
+          const sy = (height - side) / 2;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = ctxSetup();
+          if (!ctx) return;
+          ctx.drawImage(source, sx, sy, side, side, 0, 0, size, size);
+        }
+        const done = (blob) => {
           if (!blob) return reject(new Error("Could not compress the image."));
-          resolve(blob);
-        }, "image/jpeg", quality);
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read that image.")); };
-      img.src = url;
+          resolve(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
+        };
+        if (canvas.toBlob) canvas.toBlob(done, "image/jpeg", quality);
+        else {
+          const bin = atob(canvas.toDataURL("image/jpeg", quality).split(",")[1] || "");
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+          done(new Blob([bytes], { type: "image/jpeg" }));
+        }
+      }
+      const failRead = () => reject(new Error("That photo format isn't supported. Please choose a JPEG or PNG."));
+      if (typeof createImageBitmap === "function") {
+        const opts = { imageOrientation: "from-image" };
+        Promise.resolve()
+          .then(() => createImageBitmap(file, opts).catch(() => createImageBitmap(file)))
+          .then((bitmap) => {
+            try { toJpeg(bitmap, bitmap.width, bitmap.height); }
+            finally { try { bitmap.close(); } catch (e) { /* ignore */ } }
+          })
+          .catch(() => loadViaImage());
+        return;
+      }
+      function loadViaImage() {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        const timer = setTimeout(() => { URL.revokeObjectURL(url); failRead(); }, 20000);
+        img.onload = () => {
+          clearTimeout(timer);
+          try { toJpeg(img, img.naturalWidth || img.width, img.naturalHeight || img.height); }
+          finally { URL.revokeObjectURL(url); }
+        };
+        img.onerror = () => { clearTimeout(timer); URL.revokeObjectURL(url); failRead(); };
+        img.src = url;
+      }
+      loadViaImage();
     });
   }
   function receiptPublicUrl(path) {
@@ -1761,8 +1856,48 @@
     };
   }
 
+  function proofThumbHtml(url, alt) {
+    if (!url) return "";
+    return `<button type="button" class="receipt-thumb-btn" data-proof-src="${escapeHtml(url)}" aria-label="${escapeHtml(alt || "View screenshot")}"><img class="receipt-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(alt || "Payment screenshot")}" /></button>`;
+  }
+  function openProofLightbox(url) {
+    if (!url) return;
+    let box = $("proof-lightbox");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "proof-lightbox";
+      box.className = "proof-lightbox";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Payment screenshot");
+      box.innerHTML = '<button type="button" class="proof-lightbox-close" aria-label="Close">×</button><img alt="Payment screenshot" />';
+      document.body.appendChild(box);
+      const close = () => { box.hidden = true; document.body.classList.remove("lightbox-open"); };
+      box.addEventListener("click", (ev) => {
+        if (ev.target === box || ev.target.closest(".proof-lightbox-close")) close();
+      });
+      document.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape" && box && !box.hidden) close();
+      });
+    }
+    const img = box.querySelector("img");
+    img.src = url;
+    box.hidden = false;
+    document.body.classList.add("lightbox-open");
+  }
+  function bindProofLightbox() {
+    if (bindProofLightbox._bound) return;
+    bindProofLightbox._bound = true;
+    document.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-proof-src]");
+      if (!btn) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      openProofLightbox(btn.getAttribute("data-proof-src"));
+    });
+  }
+
   window.MB = {
-    CATEGORIES, CAT_COLORS, CAT_COLOR_TOKENS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
+    CATEGORIES, PERSONAL_EXPENSE_CATS, INCOME_CATS, CAT_COLORS, CAT_COLOR_TOKENS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
     $, escapeHtml, errorMessage, formatMoney, equalSplits,
     getSelectedMonth, setSelectedMonth, monthLabel, monthBounds, todayISO,
     client, uid, currentPage, configured,
@@ -1779,14 +1914,14 @@
     loadRoomCategoryBudgets, maybeBrowserNotify, requestBrowserNotify,
     isIosDevice, isStandaloneApp, subscribePush, unsubscribePush, sendTestPush, getPushSubscription,
     invitePageUrl, inviteShareText, whatsappShareHref, copyInviteMessage, shareInvite, safeNextPath,
-    avatarHtml, paintHeaderAvatar, enhancePasswordFields, bindPasswordRules, itemizedSplits, fetchFxRate,
+    avatarHtml, paintHeaderAvatar, enhancePasswordFields, bindPasswordRules, itemizedSplits, fetchFxRate, proofThumbHtml, openProofLightbox, bindProofLightbox,
     compressImage, signedReceiptUrl, loadChartJs, whenVisible, cssToken, initials,
-    bootAuthPage, bootApp, showError, hideError, showPageError, setTheme, currentTheme, siteBase, withBase, originUrl,
+    bootAuthPage, bootApp, showError, hideError, showPageError, showToast, patchProfile, bustAvatarUrl, setTheme, currentTheme, siteBase, withBase, originUrl,
     get profile() { return profile; },
     setCurrency(code) { currency = code; },
     get currency() { return currency; },
   };
 
-  document.addEventListener("DOMContentLoaded", () => { enhancePasswordFields(); });
-  if (document.readyState !== "loading") enhancePasswordFields();
+  document.addEventListener("DOMContentLoaded", () => { enhancePasswordFields(); bindProofLightbox(); });
+  if (document.readyState !== "loading") { enhancePasswordFields(); bindProofLightbox(); }
 })();

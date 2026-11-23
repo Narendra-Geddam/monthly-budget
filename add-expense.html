@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Add expense · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=19" />
+  <link rel="manifest" href="manifest.json?v=20" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,10 +61,11 @@
       </div>
       <div class="btn-row" id="receipt-actions" style="margin-bottom:12px">
         <label class="secondary-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="file" id="scan-receipt" accept="image/*" capture="environment" hidden />
+          <input type="file" id="scan-receipt" accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif" hidden />
           Scan or upload receipt
         </label>
       </div>
+      <p class="card-sub" id="receipt-hint">Take a photo or choose a receipt or screenshot from your gallery.</p>
       <p class="card-sub" id="ocr-status" hidden></p>
       <img id="receipt-preview" class="receipt-thumb" alt="Receipt preview" hidden />
       <label class="field"><span>Amount (<span id="amount-currency-label">INR</span>)</span><input type="number" id="exp-amount" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" /></label>

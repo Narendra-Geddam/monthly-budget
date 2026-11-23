@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Settle up · Monthly Budget</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=19" />
+  <link rel="manifest" href="manifest.json?v=20" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -54,6 +54,14 @@
           <label class="field"><span>Amount</span><input type="number" id="pay-amount" min="0.01" step="0.01" required placeholder="0.00" /></label>
           <label class="field"><span>Date</span><input type="date" id="pay-date" required /></label>
           <label class="field"><span>Note <em>(optional)</em></span><input type="text" id="pay-note" maxlength="160" placeholder="UPI, cash, bank transfer" /></label>
+          <div class="btn-row" style="margin: 4px 0 10px">
+            <label class="secondary-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="file" id="pay-proof" accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif" hidden />
+              Attach payment screenshot
+            </label>
+          </div>
+          <p class="card-sub" id="pay-proof-hint">Optional. Add a UPI, GPay, or bank screenshot from your camera or gallery.</p>
+          <img id="pay-proof-preview" class="receipt-thumb" alt="Payment screenshot preview" hidden />
           <p class="form-error" id="pay-error" hidden></p>
           <button type="submit" class="primary-btn">Save payment</button>
         <p class="upi-pay" id="upi-pay" hidden></p>

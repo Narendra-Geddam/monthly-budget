@@ -49,26 +49,74 @@
       preview.style.color = sw.fg;
     }
     if (ctx.profile.avatar_url) preview.className = "avatar avatar-lg";
-    $("profile-avatar").addEventListener("change", async (ev) => {
-      const file = ev.target.files && ev.target.files[0];
-      if (!file) return;
-      hideError("profile-error");
-      try {
-        const blob = await MB.compressImage(file, 256, 0.82);
-        const path = ctx.uid + "/avatar.jpg";
-        const { error: upErr } = await MB.client().storage.from("avatars").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
-        if (upErr) throw upErr;
-        const { data } = MB.client().storage.from("avatars").getPublicUrl(path);
-        const url = data.publicUrl + "?v=" + Date.now();
-        const { error } = await MB.client().rpc("update_my_profile", { p_patch: { avatar_url: url } });
-        if (error) throw error;
+    function paintPreview(url, name) {
+      if (url) {
         preview.className = "avatar avatar-lg";
         preview.innerHTML = `<img src="${escapeHtml(url)}" alt="">`;
-        MB.paintHeaderAvatar({ display_name: $("profile-name").value, avatar_url: url });
-        $("profile-ok").hidden = false;
-        $("profile-ok").textContent = "Photo updated.";
+      }
+      if (MB.patchProfile) {
+        MB.patchProfile({ display_name: name || ($("profile-name") && $("profile-name").value) || fallbackName, avatar_url: url });
+      } else {
+        MB.paintHeaderAvatar({ display_name: name || fallbackName, avatar_url: url });
+      }
+    }
+    $("profile-avatar").addEventListener("change", async (ev) => {
+      const input = ev.target;
+      const file = input.files && input.files[0];
+      input.value = "";
+      if (!file) return;
+      hideError("avatar-error");
+      hideError("profile-error");
+      if ($("avatar-ok")) $("avatar-ok").hidden = true;
+      preview.classList.add("is-uploading");
+      let localUrl = "";
+      try {
+        if (file.type && file.type.startsWith("image/")) {
+          localUrl = URL.createObjectURL(file);
+          paintPreview(localUrl, $("profile-name").value);
+        }
+        const blob = await MB.compressImage(file, 512, 0.82);
+        const path = ctx.uid + "/avatar-" + Date.now() + ".jpg";
+        const { error: upErr } = await MB.client().storage.from("avatars").upload(path, blob, {
+          upsert: true,
+          contentType: "image/jpeg",
+          cacheControl: "3600",
+        });
+        if (upErr) throw upErr;
+        const { data } = MB.client().storage.from("avatars").getPublicUrl(path);
+        const baseUrl = (data && data.publicUrl) || "";
+        if (!baseUrl) throw new Error("Could not get a URL for the photo.");
+        const url = baseUrl + (baseUrl.indexOf("?") >= 0 ? "&" : "?") + "v=" + Date.now();
+        const { data: saved, error } = await MB.client().rpc("update_my_profile", { p_patch: { avatar_url: url } });
+        if (error) throw error;
+        if (saved) ctx.profile = Object.assign(ctx.profile || {}, saved);
+        else ctx.profile.avatar_url = url;
+        paintPreview(url, (saved && saved.display_name) || $("profile-name").value);
+        try {
+          const { data: listed } = await MB.client().storage.from("avatars").list(ctx.uid, { limit: 50 });
+          const stale = (listed || [])
+            .map((f) => f && f.name)
+            .filter((name) => name && (ctx.uid + "/" + name) !== path)
+            .map((name) => ctx.uid + "/" + name);
+          if (stale.length) await MB.client().storage.from("avatars").remove(stale);
+        } catch (cleanupErr) { console.warn(cleanupErr); }
+        if ($("avatar-ok")) {
+          $("avatar-ok").hidden = false;
+          $("avatar-ok").textContent = "Photo updated.";
+        }
+        if (MB.showToast) MB.showToast("Photo updated.", "ok");
       } catch (err) {
-        showError("profile-error", errorMessage(err));
+        showError("avatar-error", errorMessage(err));
+        if (MB.showToast) MB.showToast(errorMessage(err), "error");
+        const fallback = ctx.profile && ctx.profile.avatar_url;
+        if (fallback) paintPreview(fallback, $("profile-name").value);
+        else {
+          preview.className = "avatar-fallback avatar-lg";
+          preview.innerHTML = escapeHtml(MB.initials($("profile-name").value || fallbackName));
+        }
+      } finally {
+        preview.classList.remove("is-uploading");
+        if (localUrl) URL.revokeObjectURL(localUrl);
       }
     });
     $("profile-form").addEventListener("submit", async (e) => {
@@ -84,10 +132,13 @@
       });
       if (error) return showError("profile-error", errorMessage(error));
       MB.setCurrency(currency);
+      const next = data || { display_name: name, currency, phone, upi_id: upi, avatar_url: ctx.profile.avatar_url };
+      ctx.profile = Object.assign(ctx.profile || {}, next);
+      if (MB.patchProfile) MB.patchProfile(next);
       $("profile-ok").hidden = false;
       $("profile-ok").textContent = "Saved.";
       if ($("profile-display-name")) $("profile-display-name").textContent = name;
-      MB.paintHeaderAvatar(data || { display_name: name, avatar_url: ctx.profile.avatar_url });
+      MB.paintHeaderAvatar(ctx.profile);
     });
     MB.bindPasswordRules({ passwordId: "new-password", confirmId: "new-password-confirm", hintId: "pw-hint", matchId: "pw-match", min: 8 });
     $("password-form").addEventListener("submit", async (e) => {

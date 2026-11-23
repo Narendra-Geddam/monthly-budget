@@ -1,6 +1,8 @@
 (() => {
   const MB = window.MB;
   const { $, escapeHtml, formatMoney, equalSplits, showError, hideError, errorMessage } = MB;
+  const PERSONAL_EXPENSE_CATS = (MB.PERSONAL_EXPENSE_CATS && MB.PERSONAL_EXPENSE_CATS.slice()) || (MB.CATEGORIES || []).slice();
+  const INCOME_CATS = (MB.INCOME_CATS && MB.INCOME_CATS.slice()) || ["Salary", "Freelance", "Refund", "Gift", "Interest", "Other"];
   let members = [];
   let splitMode = "all";
   let editing = null;
@@ -455,12 +457,13 @@
     if (scan) {
       scan.addEventListener("change", async (ev) => {
         const file = ev.target.files && ev.target.files[0];
+        ev.target.value = "";
         if (!file) return;
         const status = $("ocr-status");
         status.hidden = false;
         status.textContent = "Reading receipt…";
         try {
-          const blob = await MB.compressImage(file, 1280, 0.8);
+          const blob = await MB.compressImage(file, 1280, 0.8, { fit: true });
           window._mbReceiptBlob = blob;
           const preview = $("receipt-preview");
           preview.src = URL.createObjectURL(blob);
@@ -487,7 +490,11 @@
           }
           status.textContent = "Prefill ready — check the total, date, and lines before saving. The receipt image can be stored with the expense.";
         } catch (err) {
-          status.textContent = MB.errorMessage(err);
+          if (window._mbReceiptBlob) {
+            status.textContent = "Image attached. " + (MB.errorMessage(err) || "Could not read the text, so fill the amount yourself.");
+          } else {
+            status.textContent = MB.errorMessage(err) || "Could not read that image. Try another photo or screenshot.";
+          }
         }
       });
     }

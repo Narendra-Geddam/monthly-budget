@@ -1,7 +1,7 @@
 (() => {
   const MB = window.MB;
   const { $, escapeHtml, formatMoney, showError, hideError, errorMessage } = MB;
-  const EXPENSE_CATS = MB.CATEGORIES.slice();
+  const EXPENSE_CATS = (MB.PERSONAL_EXPENSE_CATS && MB.PERSONAL_EXPENSE_CATS.slice()) || MB.CATEGORIES.slice();
 
   function toneClass(pct) {
     if (pct >= 100) return "is-over";
