@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#171816" />
+  <meta name="theme-color" content="#131512" />
   <meta name="color-scheme" content="dark light" />
   <title>Add expense · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=23" />
+  <link rel="manifest" href="manifest.json?v=24" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,7 +23,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#171816");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#131512");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>
@@ -47,10 +47,10 @@
     </section>
     <h1 class="display-title" id="add-page-title">Add expense</h1>
     <div class="segmented type-toggle" id="kind-toggle" role="group" aria-label="Expense type">
-      <button type="button" class="seg-btn is-active" data-kind="room">Room expense</button>
-      <button type="button" class="seg-btn" data-kind="personal">Personal expense</button>
+      <button type="button" class="seg-btn is-active" data-kind="room" aria-label="Room expense">Room</button>
+      <button type="button" class="seg-btn" data-kind="personal" aria-label="Personal expense">Personal</button>
     </div>
-    <form id="expense-form" class="card">
+    <form id="expense-form" class="expense-form">
       <div id="personal-fields" hidden>
         <label class="field"><span>Type</span>
           <select id="per-type" class="select">
@@ -89,21 +89,23 @@
       <div class="field">
         <span>Split</span>
         <div class="segmented" role="group" aria-label="Split type">
-          <button type="button" class="seg-btn is-active" data-split-mode="all">Everyone equally</button>
-          <button type="button" class="seg-btn" data-split-mode="selected">Selected equally</button>
-          <button type="button" class="seg-btn" data-split-mode="custom">Custom amounts</button>
+          <button type="button" class="seg-btn is-active" data-split-mode="all" aria-label="Everyone equally">Equal</button>
+          <button type="button" class="seg-btn" data-split-mode="selected" aria-label="Selected equally">Selected</button>
+          <button type="button" class="seg-btn" data-split-mode="custom" aria-label="Custom amounts">Custom</button>
         </div>
       </div>
       <div class="field" id="preset-row">
         <span>Saved splits</span>
-        <div class="btn-row">
+        <div class="preset-controls">
           <select id="split-preset" class="select"><option value="">Choose a preset</option></select>
-          <button type="button" class="text-btn" id="save-preset">Save as preset</button>
+          <button type="button" class="outline-btn" id="save-preset">Save as preset</button>
         </div>
       </div>
-      <div id="split-box" class="chip-row" style="margin-bottom:16px"></div>
-      <details id="itemize-box" style="margin-bottom:16px">
-        <summary>Itemize (split line by line)</summary>
+      <div id="split-box" class="split-member-list"></div>
+      <details id="itemize-box" class="disclose">
+        <summary>Itemize (split line by line)
+          <svg class="disclose-chevron" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.7 9.3a1 1 0 0 1 1.4 0L12 13.17l3.9-3.87a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4z"/></svg>
+        </summary>
         <p class="card-sub">Each line has an amount and assigned members. Tax and tip are spread in proportion to the line totals.</p>
         <div id="item-list"></div>
         <button type="button" class="secondary-btn" id="add-item" style="margin:8px 0">Add line</button>

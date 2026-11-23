@@ -49,7 +49,7 @@
           <div class="item-title">${n.actor_id ? MB.personChip({ id: n.actor_id, display_name: n.title, avatar_url: n.actor_avatar || n.avatar_url }, null, "sm") : escapeHtml(n.title)}</div>
           <div class="item-sub">${escapeHtml(n.body || "")} ${n.body ? "· " : ""}${escapeHtml(timeLabel(n.created_at))}</div>
         </div>
-      </a>`).join("") : MB.emptyState({ emoji: "🔔", title: "No notifications yet", text: "You'll see join requests, share requests, and payment updates here." });
+      </a>`).join("") : MB.emptyState({ art: "images/illu-people.webp", title: "Nothing in your inbox", text: "You'll see join requests, share requests, and payment updates here." });
 
     $("notif-list").querySelectorAll(".notif-item").forEach((el) => {
       el.addEventListener("click", async (e) => {

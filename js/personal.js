@@ -124,7 +124,7 @@
           <div class="item-sub">${MB.categoryChip(r.category)} · ${escapeHtml(MB.friendlyDate(r.date))} · ${escapeHtml(r.type)}</div>
         </div>
         <div class="item-amt ${r.type === "income" ? "pos" : "neg"}">${r.type === "income" ? "+" : "−"}${escapeHtml(formatMoney(r.amount))}</div>
-      </a>`).join("") : MB.emptyState({ emoji: "💸", title: "No personal entries yet", text: "Add a private expense or income — roommates will never see these.", href: "add-expense.html?mode=personal", cta: "Add a personal entry" });
+      </a>`).join("") : MB.emptyState({ art: "images/illu-piggy.webp", title: "Your money, just for you", text: "Add a private expense or income — roommates will never see these.", href: "add-expense.html?mode=personal", cta: "Add a personal entry" });
   }
   main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
 })();

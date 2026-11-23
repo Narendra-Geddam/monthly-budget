@@ -4,7 +4,7 @@
   async function main() {
     const ctx = await MB.bootApp({ title: "Settle up", month: true });
     if (!ctx) return;
-    if (!ctx.room) { $("content").innerHTML = MB.emptyState({ emoji: "🏠", title: "Join a room first", text: "Once you share expenses, you can settle balances here.", href: "dashboard.html", cta: "Go to Home" }); return; }
+    if (!ctx.room) { $("content").innerHTML = MB.emptyState({ art: "images/illu-people.webp", title: "Add your people, near and far", text: "Once you share expenses, you can settle balances here.", href: "dashboard.html", cta: "Go to Home" }); return; }
     const members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     const { expenses, splits, settlements } = (ctx.expenses && ctx.splits && ctx.settlements) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
     const balances = MB.memberBalances(members, expenses, splits, settlements);
@@ -33,7 +33,7 @@
           <button type="button" class="secondary-btn" data-mark-paid>Mark as paid</button>
         </div>
       </article>`;
-    }).join("") : MB.emptyState({ emoji: "🎉", title: "You're all settled", text: "No one in this room owes anyone for this month.", href: "dashboard.html", cta: "Back to Home" });
+    }).join("") : MB.emptyState({ art: "images/illu-handshake.webp", title: "You're all settled", text: "No one in this room owes anyone for this month.", href: "dashboard.html", cta: "Back to Home" });
 
     $("suggest-list").querySelectorAll("[data-mark-paid]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -151,7 +151,7 @@
         <div class="item-amt ${pending ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
       </div>`;
     }));
-    $("history").innerHTML = historyBits.length ? historyBits.join("") : MB.emptyState({ emoji: "💸", title: "No payments yet", text: "When someone pays a roommate, the record will show up here." });
+    $("history").innerHTML = historyBits.length ? historyBits.join("") : MB.emptyState({ art: "images/illu-house.webp", title: "No payments yet", text: "When someone pays a roommate, the record will show up here." });
     if (MB.bindProofLightbox) MB.bindProofLightbox($("history"));
     $("history").querySelectorAll("[data-confirm]").forEach((btn) => {
       btn.addEventListener("click", async () => {

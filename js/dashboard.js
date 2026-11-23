@@ -2,6 +2,37 @@
   const MB = window.MB;
   const { $, escapeHtml, formatMoney, netLabel, colorForCategory } = MB;
 
+
+  function renderReceiptPromo() {
+    const host = $("dash-promo");
+    if (!host) return;
+    try {
+      if (localStorage.getItem("mb-promo-receipts-dismissed") === "1") {
+        host.hidden = true;
+        host.innerHTML = "";
+        return;
+      }
+    } catch (e) { /* ignore */ }
+    host.hidden = false;
+    host.innerHTML = `
+      <button type="button" class="promo-close" id="promo-close" aria-label="Dismiss">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path fill="currentColor" d="M3 3l8 8M11 3 3 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <img class="promo-art" src="${MB.withBase("images/illu-receipts.webp")}" width="180" height="180" alt="" />
+      <h2 class="display-title">Scan receipts in a tap</h2>
+      <p class="card-sub">Photograph a bill and we fill in the amount, date, and description for you.</p>
+      <div class="btn-row">
+        <a class="primary-btn" href="add-expense.html">Get started</a>
+        <a class="secondary-btn" href="add-expense.html">Learn more</a>
+      </div>`;
+    const close = $("promo-close");
+    if (close) close.addEventListener("click", () => {
+      try { localStorage.setItem("mb-promo-receipts-dismissed", "1"); } catch (e) { /* ignore */ }
+      host.hidden = true;
+      host.innerHTML = "";
+    });
+  }
+
   function renderNoRoom() {
     $("dash-content").innerHTML = `
       <section class="card">
@@ -235,7 +266,7 @@
     const ctx = await MB.bootApp({ title: "This month", month: true });
     if (!ctx) return;
     setupPushBanner();
-    if (!ctx.room) return renderNoRoom();
+    if (!ctx.room) { renderReceiptPromo(); return renderNoRoom(); }
     const members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     bindDashInvite(ctx, members);
     const packed = (ctx.expenses && ctx.splits) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
@@ -281,6 +312,7 @@
         }
       }
     }
+    renderReceiptPromo();
     MB.renderOnboardingTip($("onboard-tip"));
     const limit = Number(ctx.room.monthly_budget_limit) || 0;
     const sentence = $("month-sentence");
@@ -316,12 +348,12 @@
       const e = expenses.find((x) => x.id === s.expense_id);
       if (!e) return "";
       return MB.expenseRowHtml(e, { members, splits: [s] });
-    }).join("") : MB.emptyState({ emoji: "🤝", title: "No accepted shares yet", text: "When you accept your part of a bill, it will show up here.", href: "add-expense.html", cta: "Add an expense" });
+    }).join("") : MB.emptyState({ art: "images/illu-handshake.webp", title: "No accepted shares yet", text: "When you accept your part of a bill, it will show up here.", href: "add-expense.html", cta: "Add an expense" });
 
     const recent = expenses.slice(0, 6);
     $("recent-list").innerHTML = recent.length
       ? recent.map((e) => MB.expenseRowHtml(e, { members, splits })).join("")
-      : MB.emptyState({ emoji: "🧾", title: "No expenses this month", text: "Add rent, groceries, or a dinner to start tracking together.", href: "add-expense.html", cta: "Add an expense" });
+      : MB.emptyState({ art: "images/illu-receipts.webp", title: "No expenses this month", text: "Add rent, groceries, or a dinner to start tracking together.", href: "add-expense.html", cta: "Add an expense" });
 
     const spent = {};
     expenses.forEach((e) => { spent[e.category] = (spent[e.category] || 0) + Number(e.amount); });

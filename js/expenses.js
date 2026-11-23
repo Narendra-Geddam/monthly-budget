@@ -4,7 +4,7 @@
   async function main() {
     const ctx = await MB.bootApp({ title: "Expenses", month: true });
     if (!ctx) return;
-    if (!ctx.room) { $("list").innerHTML = MB.emptyState({ emoji: "🏠", title: "Join a room first", text: "Shared expenses show up here after you join or create a room.", href: "dashboard.html", cta: "Go to Home" }); return; }
+    if (!ctx.room) { $("list").innerHTML = MB.emptyState({ art: "images/illu-people.webp", title: "Add your people, near and far", text: "Shared expenses show up here after you join or create a room.", href: "dashboard.html", cta: "Go to Home" }); return; }
     const members = ctx.members && ctx.members.length ? ctx.members : await MB.loadMembers(ctx.room.id);
     const data = (ctx.expenses && ctx.splits) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
     const expenses = data.expenses || [];
@@ -42,7 +42,7 @@
         const row = MB.expenseRowHtml(e, { members, splits, receipt });
         html.push(row);
       }
-      $("list").innerHTML = html.length ? html.join("") : MB.emptyState({ emoji: "🔎", title: "No matching expenses", text: "Try another search, date, or category — or add the first bill.", href: "add-expense.html", cta: "Add an expense" });
+      $("list").innerHTML = html.length ? html.join("") : MB.emptyState({ art: "images/illu-receipts.webp", title: "No matching expenses", text: "Try another search, date, or category — or add the first bill.", href: "add-expense.html", cta: "Add an expense" });
     }
     ["exp-search", "filter-category", "filter-payer", "filter-from", "filter-to"].forEach((id) => {
       $(id).addEventListener("input", () => { paint().catch(() => {}); });

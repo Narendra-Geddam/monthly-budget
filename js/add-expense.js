@@ -9,7 +9,9 @@
 
   function selectedMemberIds() {
     if (splitMode === "all") return members.map((m) => m.id);
-    return [...document.querySelectorAll("[data-split-id]:checked")].map((el) => el.getAttribute("data-split-id"));
+    const boxes = [...document.querySelectorAll("[data-split-id]")];
+    if (!boxes.length) return members.map((m) => m.id);
+    return boxes.filter((el) => el.checked).map((el) => el.getAttribute("data-split-id"));
   }
 
 
@@ -59,15 +61,16 @@
   function renderSplitUi() {
     const amount = Number($("exp-amount").value) || 0;
     const host = $("split-box");
+    host.className = "split-member-list";
+    const who = (m) => `<span class="split-who">${MB.personChip(m, members, "sm")}${m.id === MB.uid() ? " <span class=\"you-tag\">(you)</span>" : ""}${statusPill(m.id)}</span>`;
     if (splitMode === "custom") {
       const current = {};
       if (editing) {
         (editing.splits || []).forEach((s) => { current[s.user_id] = s.share_amount; });
       }
-      host.innerHTML = `<div class="split-rows">${members.map((m) => `
-        <label class="split-row"><span>${MB.personChip(m, members, "sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span>
-        <input type="number" min="0" step="0.01" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" /></label>`).join("")}</div>
-        <p class="card-sub" id="split-sum"></p>`;
+      host.innerHTML = members.map((m) => `
+        <label class="split-member-row">${who(m)}
+        <input type="number" min="0" step="0.01" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" /></label>`).join("") + `<p class="card-sub" id="split-sum"></p>`;
       host.querySelectorAll("[data-custom-id]").forEach((el) => el.addEventListener("input", updateSplitSum));
       updateSplitSum();
       return;
@@ -78,7 +81,7 @@
       const share = shares.find((s) => s.user_id === m.id);
       const checked = ids.includes(m.id) ? "checked" : "";
       const box = splitMode === "selected" ? `<input type="checkbox" data-split-id="${escapeHtml(m.id)}" ${checked} />` : "";
-      return `<label class="chip">${box}<span>${MB.personChip(m, members, "sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span><strong>${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
+      return `<label class="split-member-row">${box}${who(m)}<strong class="split-amt">${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
     }).join("");
     if (splitMode === "selected") {
       host.querySelectorAll("[data-split-id]").forEach((el) => el.addEventListener("change", renderSplitUi));

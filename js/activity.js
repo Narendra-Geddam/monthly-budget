@@ -202,7 +202,7 @@
     const host = $("activity-feed");
     if (!items.length) {
       host.innerHTML = MB.emptyState({
-        emoji: "🕊️",
+        art: "images/illu-house.webp",
         title: "No activity yet",
         text: "Add an expense or invite a roommate — updates will show up here.",
         href: "add-expense.html",
@@ -219,7 +219,7 @@
       else last.rows.push(row);
     });
     host.innerHTML = groups.map((g) => `
-      <section class="card activity-day">
+      <section class="activity-day">
         <h3 class="day-heading">${escapeHtml(g.heading)}</h3>
         <div class="list">
           ${g.rows.map((row) => {

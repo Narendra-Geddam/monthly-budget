@@ -37,7 +37,7 @@
   async function main() {
     const ctx = await MB.bootApp({ title: "Members", month: true });
     if (!ctx) return;
-    if (!ctx.room) { $("list").innerHTML = MB.emptyState({ emoji: "🏠", title: "Join a room first", text: "Roommates will appear here after you join or create a room.", href: "dashboard.html", cta: "Go to Home" }); return; }
+    if (!ctx.room) { $("list").innerHTML = MB.emptyState({ art: "images/illu-people.webp", title: "Add your people, near and far", text: "Roommates will appear here after you join or create a room.", href: "dashboard.html", cta: "Go to Home" }); return; }
     const members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     const packed = (ctx.expenses && ctx.splits && ctx.settlements) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
     const { expenses, splits, settlements } = packed;
@@ -68,7 +68,7 @@
           ${actions}
         </div>
       </div>`;
-    }).join("") || MB.emptyState({ emoji: "👥", title: "No members yet", text: "Invite a roommate to start splitting bills.", href: "room.html", cta: "Invite someone" });
+    }).join("") || MB.emptyState({ art: "images/illu-people.webp", title: "Add your people, near and far", text: "Invite a roommate to start splitting bills.", href: "room.html", cta: "Invite someone" });
 
     $("list").querySelectorAll("[data-role]").forEach((btn) => {
       btn.addEventListener("click", async () => {

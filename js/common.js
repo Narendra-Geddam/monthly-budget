@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=23";
+  const MANIFEST_HREF = "manifest.json?v=24";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -205,7 +205,7 @@
   let profile = null;
   let currency = "INR";
 
-  const THEME_CHROME = { light: "#F4F4F2", dark: "#171816" };
+  const THEME_CHROME = { light: "#F4F4F2", dark: "#131512" };
   function cssToken(name, fallback) {
     try {
       const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -309,6 +309,48 @@
   function todayISO() {
     const d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function formatDateIN(iso) {
+    if (!iso) return "";
+    const day = String(iso).slice(0, 10);
+    const d = new Date(day + "T00:00:00");
+    if (Number.isNaN(d.getTime())) return day;
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+  }
+  function syncDateDisplay(input) {
+    const vis = input && input.parentElement && input.parentElement.querySelector(".date-display");
+    if (!vis) return;
+    vis.textContent = input.value ? formatDateIN(input.value) : "Choose a date";
+  }
+  function enhanceDateFields(root) {
+    (root || document).querySelectorAll("input[type='date']").forEach((input) => {
+      const refresh = () => syncDateDisplay(input);
+      if (input.closest(".date-field")) {
+        refresh();
+        return;
+      }
+      const wrap = document.createElement("div");
+      wrap.className = "date-field";
+      input.parentNode.insertBefore(wrap, input);
+      const vis = document.createElement("span");
+      vis.className = "date-display";
+      vis.setAttribute("aria-hidden", "true");
+      wrap.appendChild(vis);
+      wrap.appendChild(input);
+      input.addEventListener("input", refresh);
+      input.addEventListener("change", refresh);
+      const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+      if (desc && desc.set && desc.get) {
+        Object.defineProperty(input, "value", {
+          configurable: true,
+          enumerable: desc.enumerable,
+          get() { return desc.get.call(this); },
+          set(v) { desc.set.call(this, v); refresh(); },
+        });
+      }
+      refresh();
+    });
   }
   function getSelectedMonth() {
     const q = new URLSearchParams(location.search).get("month");
@@ -717,11 +759,15 @@
   }
   function emptyState(opts) {
     const o = opts || {};
+    const art = o.art ? `<img class="empty-art" src="${escapeHtml(withBase(o.art))}" width="200" height="200" alt="" />` : "";
     const cta = o.href && o.cta ? `<a class="primary-btn" href="${escapeHtml(o.href)}">${escapeHtml(o.cta)}</a>` : "";
-    return `<div class="empty-state">
+    const secondary = o.secondaryHref && o.secondaryCta ? `<a class="secondary-btn" href="${escapeHtml(o.secondaryHref)}">${escapeHtml(o.secondaryCta)}</a>` : "";
+    const actions = (cta || secondary) ? `<div class="btn-row">${cta}${secondary}</div>` : "";
+    return `<div class="empty-state card is-outline">
+      ${art}
       <h2 class="display-title">${escapeHtml(o.title || "Nothing here yet")}</h2>
       <p>${escapeHtml(o.text || "")}</p>
-      ${cta}
+      ${actions}
     </div>`;
   }
   function memberNetChip(netAmt) {
@@ -1949,7 +1995,7 @@
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
     memberBalances, settleSuggestions, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
+    friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
@@ -1966,6 +2012,6 @@
     get currency() { return currency; },
   };
 
-  document.addEventListener("DOMContentLoaded", () => { enhancePasswordFields(); bindProofLightbox(); });
-  if (document.readyState !== "loading") { enhancePasswordFields(); bindProofLightbox(); }
+  document.addEventListener("DOMContentLoaded", () => { enhancePasswordFields(); enhanceDateFields(); bindProofLightbox(); });
+  if (document.readyState !== "loading") { enhancePasswordFields(); enhanceDateFields(); bindProofLightbox(); }
 })();
