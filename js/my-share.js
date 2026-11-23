@@ -33,8 +33,8 @@
     }
     const suggestions = MB.settleSuggestions(balances).filter((t) => t.from.id === ctx.uid || t.to.id === ctx.uid);
     $("owe-list").innerHTML = suggestions.length ? suggestions.map((t) => {
-      if (t.from.id === ctx.uid) return `<div class="suggest"><span>You owe ${MB.personChip(t.to, members, "avatar-sm")}</span><strong class="net-pill neg">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
-      return `<div class="suggest"><span>${MB.personChip(t.from, members, "avatar-sm")} owes you</span><strong class="net-pill pos">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
+      if (t.from.id === ctx.uid) return `<div class="suggest"><span>You owe ${MB.personChip(t.to, members, "sm")}</span><strong class="net-pill neg">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
+      return `<div class="suggest"><span>${MB.personChip(t.from, members, "sm")} owes you</span><strong class="net-pill pos">${escapeHtml(formatMoney(t.amount))}</strong></div>`;
     }).join("") : MB.emptyState({ emoji: "🎉", title: "You're all settled", text: "No outstanding balances with roommates this month." });
   }
   main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });

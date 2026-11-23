@@ -42,7 +42,7 @@
       if (!e) return "";
       return `<a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}">
         <div class="item-icon">${escapeHtml(e.category.slice(0,1))}</div>
-        <div><div class="item-title">${escapeHtml(e.description)}</div><div class="item-sub">Paid by ${MB.personChip(e.paid_by, members, "avatar-sm")}</div></div>
+        <div><div class="item-title">${escapeHtml(e.description)}</div><div class="item-sub">Paid by ${MB.personChip(e.paid_by, members, "sm")}</div></div>
         <div class="item-amt">${escapeHtml(formatMoney(s.share_amount))}</div>
       </a>`;
     }).join("") : `<p class="empty">No shares this month.</p>`;

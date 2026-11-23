@@ -120,7 +120,7 @@
       const p = profiles.find((x) => x.id === r.user_id) || {};
       const person = { id: r.user_id, display_name: r.display_name || p.display_name || "Someone", avatar_url: r.avatar_url || p.avatar_url };
       return `<div class="pending-card">
-        <div><div class="item-title">${MB.personChip(person, null, "avatar-row")}</div><div class="item-sub">Asked to join with the room code</div></div>
+        <div><div class="item-title">${MB.personChip(person, null, "md")}</div><div class="item-sub">Asked to join with the room code</div></div>
         <div class="btn-row compact">
           <button type="button" class="primary-btn" data-approve="${escapeHtml(r.id)}">Approve</button>
           <button type="button" class="danger-btn ghost" data-reject="${escapeHtml(r.id)}">Reject</button>
@@ -250,7 +250,7 @@
     if (heroEl && heroLine) {
       heroEl.className = "card hero-status " + hero.cls;
       if (hero.counterpart) {
-        const chip = MB.personChip(MB.memberRecord(hero.counterpart.id, members), members, "avatar-sm");
+        const chip = MB.personChip(MB.memberRecord(hero.counterpart.id, members), members, "lg");
         if (hero.direction === "owed") heroLine.innerHTML = chip + " owes you " + MB.escapeHtml(MB.formatMoney(hero.amount));
         else if (hero.direction === "owe") heroLine.innerHTML = "You owe " + chip + " " + MB.escapeHtml(MB.formatMoney(hero.amount));
         else heroLine.textContent = hero.text;

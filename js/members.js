@@ -60,7 +60,7 @@
       const person = Object.assign({ id: b.id, display_name: b.name, avatar_url: m.avatar_url || b.avatar_url }, m);
       return `<div class="member-card">
         <a href="member.html?id=${escapeHtml(b.id)}" style="color:inherit;text-decoration:none;flex:1;min-width:0">
-          <div class="item-title">${MB.personChip(person, members, "avatar-row")}${b.id === ctx.uid ? " (you)" : ""}${roleBadge}</div>
+          <div class="item-title">${MB.personChip(person, members, "md")}${b.id === ctx.uid ? " (you)" : ""}${roleBadge}</div>
           <div class="item-sub">Paid ${escapeHtml(formatMoney(b.paidAmt))} · share ${escapeHtml(formatMoney(b.shareAmt))}</div>
         </a>
         <div class="member-actions">

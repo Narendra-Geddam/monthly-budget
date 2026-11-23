@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=22";
+  const MANIFEST_HREF = "manifest.json?v=23";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -793,7 +793,7 @@
     return `<a class="list-item expense-row" href="${escapeHtml(href)}">
       <span class="tx-icon ${minePaid ? "is-out" : "is-in"}" aria-hidden="true">${minePaid ? ICONS.arrowOut : ICONS.arrowIn}</span>
       <div>
-        <div class="item-title">${personChip(payer, members, "avatar-sm")}<span>${escapeHtml(title)}${escapeHtml(fx)}</span></div>
+        <div class="item-title">${personChip(payer, members, "sm")}<span>${escapeHtml(title)}${escapeHtml(fx)}</span></div>
         <div class="item-sub">${escapeHtml(subKind)} · ${escapeHtml(friendlyDate(expense.date))}${escapeHtml(shareBit)}</div>
         ${receipt}
       </div>
@@ -865,7 +865,7 @@
       return `<article class="pending-card" data-expense-id="${escapeHtml(e.id)}">
         <div>
           <div class="item-title">${escapeHtml(e.description)}</div>
-          <div class="item-sub">${categoryChip(e.category)} · ${escapeHtml(friendlyDate(e.date))} · paid by ${personChip(payer, members, "avatar-sm")}</div>
+          <div class="item-sub">${categoryChip(e.category)} · ${escapeHtml(friendlyDate(e.date))} · paid by ${personChip(payer, members, "sm")}</div>
           <div class="item-sub">Your share ${escapeHtml(formatMoney(r.share_amount))} ${infoTip("Your share is the part of this expense that you are responsible for.")}</div>
         </div>
         <div class="btn-row compact">
@@ -939,7 +939,7 @@
           ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
         </nav>
         <div class="top-actions">
-          <a class="top-avatar" href="profile.html" id="header-profile" aria-label="Profile" title="Profile">${avatarHtml({ display_name: (profile && profile.display_name) || "You", avatar_url: profile && profile.avatar_url, id: uid() }, "avatar-row")}</a>
+          <a class="top-avatar" href="profile.html" id="header-profile" aria-label="Profile" title="Profile">${avatarHtml({ display_name: (profile && profile.display_name) || "You", avatar_url: profile && profile.avatar_url, id: uid() }, "lg")}</a>
           <a class="icon-btn pill-btn requests-link" href="notifications.html" aria-label="Notifications" title="Notifications">
             ${ICONS.bell}<span class="badge" data-notif-badge hidden></span>
           </a>
@@ -1531,11 +1531,25 @@
     if (m) return m;
     return { id: id, display_name: "Member" };
   }
-  function avatarHtml(person, cls) {
+  const AVATAR_SIZE = {
+    xs: "xs", sm: "sm", md: "md", lg: "lg", xl: "xl",
+    "avatar-xs": "xs", "sm": "sm", "md": "md",
+    "avatar-lg": "lg", "avatar-xl": "xl",
+    "avatar-row": "md", row: "md",
+  };
+  function avatarSize(size) {
+    const raw = String(size || "md").trim();
+    if (AVATAR_SIZE[raw]) return AVATAR_SIZE[raw];
+    const m = raw.match(/avatar-(xs|sm|md|lg|xl|row)/);
+    if (m) return m[1] === "row" ? "md" : m[1];
+    return "md";
+  }
+  function avatarHtml(person, size) {
     const p = person || {};
     const name = p.display_name || p.name || p.actor_name || "?";
     const url = avatarUrlOf(p);
-    const klass = "avatar " + (cls || "avatar-row");
+    const key = avatarSize(size);
+    const klass = "avatar avatar-" + key;
     const sw = avatarSwatch(p.id || p.user_id || p.actor_id || name);
     const style = `--avatar-bg:${sw.bg};--avatar-fg:${sw.fg};background:${sw.bg};color:${sw.fg}`;
     if (url) {
@@ -1543,21 +1557,21 @@
     }
     return `<span class="avatar-fallback ${klass}" style="${style}">${escapeHtml(initials(name))}</span>`;
   }
-  function personChip(personOrId, members, cls) {
+  function personChip(personOrId, members, size) {
     const p = (personOrId && typeof personOrId === "object")
       ? personOrId
       : memberRecord(personOrId, members);
     const id = p.id || p.user_id;
     const name = (id && members) ? displayName(id, members) : (p.display_name || p.name || p.actor_name || "Member");
-    // Avatar always sits to the left of the name.
-    return `<span class="person">${avatarHtml(p, cls || "avatar-sm")}<span class="person-name">${escapeHtml(name)}</span></span>`;
+    const key = avatarSize(size || "sm");
+    return `<span class="person person-${key}">${avatarHtml(p, key)}<span class="person-name">${escapeHtml(name)}</span></span>`;
   }
   function paintHeaderAvatar(p) {
     const el = document.getElementById("header-profile");
     if (!el) return;
     const person = p || profile;
     if (!person) return;
-    el.innerHTML = avatarHtml(person, "");
+    el.innerHTML = avatarHtml(person, "lg");
   }
   function enhancePasswordFields(root) {
     (root || document).querySelectorAll("input[type='password']").forEach((input) => {
@@ -1936,7 +1950,7 @@
     memberBalances, settleSuggestions, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
     friendlyDate, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
-    memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch,
+    memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
     isAdmin, isOwner, roleLabel, roomCategories, loadUnreadCount, setNotifBadge,

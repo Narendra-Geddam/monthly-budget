@@ -177,7 +177,7 @@
         const payer = MB.displayName(r.paid_by, members);
         return `<div class="list-item">
           <div><div class="item-title">${escapeHtml(r.description)}</div>
-          <div class="item-sub">${escapeHtml(r.category)} · ${escapeHtml(formatMoney(r.amount))} · paid by ${MB.personChip(r.paid_by, members, "avatar-sm")} · day ${r.day_of_month}${r.active ? "" : " · paused"}</div></div>
+          <div class="item-sub">${escapeHtml(r.category)} · ${escapeHtml(formatMoney(r.amount))} · paid by ${MB.personChip(r.paid_by, members, "sm")} · day ${r.day_of_month}${r.active ? "" : " · paused"}</div></div>
           <button type="button" class="text-btn" data-del-rec="${escapeHtml(r.id)}">Remove</button>
         </div>`;
       }).join("") : `<p class="empty">No recurring expenses yet.</p>`;

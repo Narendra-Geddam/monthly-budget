@@ -29,7 +29,7 @@
       id: row.actor_id,
       display_name: who(row),
       avatar_url: row.actor_avatar,
-    }, null, "avatar-sm");
+    }, null, "sm");
   }
 
   function relativeTime(iso) {

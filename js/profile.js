@@ -48,10 +48,10 @@
       preview.style.background = sw.bg;
       preview.style.color = sw.fg;
     }
-    if (ctx.profile.avatar_url) preview.className = "avatar avatar-lg";
+    if (ctx.profile.avatar_url) preview.className = "avatar avatar-xl";
     function paintPreview(url, name) {
       if (url) {
-        preview.className = "avatar avatar-lg";
+        preview.className = "avatar avatar-xl";
         preview.innerHTML = `<img src="${escapeHtml(url)}" alt="">`;
       }
       if (MB.patchProfile) {
@@ -111,7 +111,7 @@
         const fallback = ctx.profile && ctx.profile.avatar_url;
         if (fallback) paintPreview(fallback, $("profile-name").value);
         else {
-          preview.className = "avatar-fallback avatar-lg";
+          preview.className = "avatar-fallback avatar-xl";
           preview.innerHTML = escapeHtml(MB.initials($("profile-name").value || fallbackName));
         }
       } finally {

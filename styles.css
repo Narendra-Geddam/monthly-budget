@@ -785,7 +785,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.62); }
   font-weight: 700; font-size: 0.9rem; overflow: hidden;
 }
 .avatar img, img.avatar { width: 100%; height: 100%; object-fit: cover; display: block; }
-.avatar-lg { width: 96px; height: 96px; font-size: 2rem; }
+.avatar-xl { width: 112px; height: 112px; font-size: 2.2rem; }
 .icon-btn.profile-link { overflow: hidden; padding: 0; }
 .icon-btn.profile-link .avatar, .icon-btn.profile-link .avatar-fallback { width: 32px; height: 32px; }
 
@@ -902,7 +902,7 @@ html[data-theme="light"] .fab-action-icon { color: var(--accent-strong); backgro
 }
 .cat-chip .cat-ico { font-size: 0.95rem; }
 .expense-row { grid-template-columns: 40px 1fr; }
-.expense-row .avatar, .expense-row .avatar-fallback { width: 40px; height: 40px; }
+/* Person-chip avatars in expense rows use .avatar-sm; do not force 40px. */
 .status-chips { margin-top: 6px; }
 .status-pill {
   font-size: 0.72rem;
@@ -994,7 +994,7 @@ html[data-theme="dark"] .role-badge { color: var(--accent); }
   display: flex; align-items: center; gap: 8px;
   font-weight: 750; min-width: 0;
 }
-.transfer-person .avatar, .transfer-person .avatar-fallback { width: 40px; height: 40px; flex: 0 0 auto; }
+.transfer-person .avatar, .transfer-person .avatar-fallback { width: 32px; height: 32px; flex: 0 0 auto; }
 .transfer-arrow {
   font-size: 1.2rem;
   font-weight: 800;
@@ -1015,7 +1015,7 @@ html[data-theme="dark"] .role-badge { color: var(--accent); }
   border-bottom: 1px solid var(--border);
 }
 .member-card:last-child { border-bottom: 0; }
-.member-card .avatar, .member-card .avatar-fallback { width: 44px; height: 44px; flex: 0 0 auto; }
+.member-card .avatar, .member-card .avatar-fallback { width: 32px; height: 32px; flex: 0 0 auto; }
 .member-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .legend-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 6px 0; }
 .legend-row .amt { font-variant-numeric: tabular-nums; font-weight: 700; }
@@ -1133,26 +1133,39 @@ html[data-theme="light"] .filter-chip.is-active { color: var(--on-accent); backg
 }
 .hero-line { font-size: clamp(1.45rem, 6vw, 1.9rem); letter-spacing: -0.04em; line-height: 1.15; }
 .hero-line {
-  display: block;
+  --hero-avatar: calc(1.2 * clamp(1.45rem, 6vw, 1.9rem));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.35em;
 }
 .hero-line .person {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
-  max-width: none;
+  max-width: 100%;
   font-weight: 800;
   white-space: nowrap;
+  vertical-align: middle;
+}
+.hero-line {
+  --hero-avatar: calc(1.2 * clamp(1.45rem, 6vw, 1.9rem));
 }
 .hero-line .person .avatar,
 .hero-line .person .avatar-fallback {
-  display: inline-flex;
-  vertical-align: -0.15em;
-  margin-right: 0.3em;
+  width: var(--hero-avatar);
+  height: var(--hero-avatar);
+  font-size: calc(var(--hero-avatar) * 0.42);
+  margin: 0;
+  flex: 0 0 var(--hero-avatar);
 }
 .hero-line .person-name {
   display: inline;
   overflow: visible;
   text-overflow: unset;
   font-weight: 800;
+  line-height: 1;
 }
 .nowrap { white-space: nowrap; }
 .hero-note { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin: 6px 0 0; }
@@ -1225,10 +1238,14 @@ html[data-theme="light"] .filter-chip.is-active { color: var(--on-accent); backg
 .see-all { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; color: var(--link); white-space: nowrap; }
 
 .person, .person-inline {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 8px;
   min-width: 0; vertical-align: middle; max-width: 100%;
+  line-height: 1.2;
 }
-.person-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.person-xs { gap: 6px; }
+.person-sm { gap: 8px; }
+.person-md, .person-lg { gap: 10px; }
+.person-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 .avatar, .avatar-fallback {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 50%; overflow: hidden; flex: 0 0 auto;
@@ -1237,10 +1254,13 @@ html[data-theme="light"] .filter-chip.is-active { color: var(--on-accent); backg
   color: var(--avatar-fg, #F5F5F5);
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.avatar-sm, .avatar.avatar-sm, .avatar-fallback.avatar-sm { width: 22px; height: 22px; font-size: 0.62rem; }
+.avatar-xs, .avatar.avatar-xs, .avatar-fallback.avatar-xs { width: 20px; height: 20px; font-size: 0.58rem; }
+.avatar-sm, .avatar.avatar-sm, .avatar-fallback.avatar-sm { width: 24px; height: 24px; font-size: 0.68rem; }
+.avatar-md, .avatar.avatar-md, .avatar-fallback.avatar-md,
 .avatar-row, .avatar.avatar-row, .avatar-fallback.avatar-row,
-.list-item > .avatar, .list-item > .avatar-fallback { width: 38px; height: 38px; font-size: 0.95rem; }
-.avatar-lg, .avatar.avatar-lg, .avatar-fallback.avatar-lg { width: 96px; height: 96px; font-size: 2rem; }
+.list-item > .avatar, .list-item > .avatar-fallback { width: 32px; height: 32px; font-size: 0.82rem; }
+.avatar-lg, .avatar.avatar-lg, .avatar-fallback.avatar-lg { width: 40px; height: 40px; font-size: 1rem; }
+.avatar-xl, .avatar.avatar-xl, .avatar-fallback.avatar-xl { width: 112px; height: 112px; font-size: 2.2rem; }
 
 .tx-icon {
   width: 38px; height: 38px; border-radius: 50%;
@@ -1401,7 +1421,7 @@ html[data-theme="light"] .fab-scrim { background: rgba(0, 0, 0, 0.28); }
 }
 
 .profile-page .topbar, .profile-page .app-chrome { border-bottom: 0; box-shadow: none; }
-.hero-line .person { display: inline; margin: 0; }
+.hero-line .person { display: inline-flex; align-items: center; gap: 10px; margin: 0; }
 
 @media (max-width: 520px) {
   .summary-grid.mine { padding-bottom: 4px; }
@@ -1532,4 +1552,18 @@ html[data-theme="light"] #hero-remind {
   appearance: none;
   background: var(--icon);
   border-color: transparent;
+}
+
+
+/* Avatar/name lockup: size tokens win over older context widths; always vertically centered. */
+.person, .person-inline, .transfer-person, .split-status-row,
+.suggest, .item-title, .member-card, .list-item {
+  align-items: center;
+}
+.hero-line .person .avatar.avatar-lg,
+.hero-line .person .avatar-fallback.avatar-lg {
+  width: var(--hero-avatar);
+  height: var(--hero-avatar);
+  font-size: calc(var(--hero-avatar) * 0.42);
+  flex-basis: var(--hero-avatar);
 }

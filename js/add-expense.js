@@ -51,7 +51,7 @@
       panel.innerHTML = (editing.splits || []).map((s) => {
         const m = members.find((x) => x.id === s.user_id);
         const name = (m && m.display_name) || "Member";
-        return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "avatar-sm")}<span>${escapeHtml(formatMoney(s.share_amount))}</span><span class="status-pill is-${escapeHtml(s.status || "pending")}">${escapeHtml(MB.splitStatusLabel(s.status))}</span></div>`;
+        return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "sm")}<span>${escapeHtml(formatMoney(s.share_amount))}</span><span class="status-pill is-${escapeHtml(s.status || "pending")}">${escapeHtml(MB.splitStatusLabel(s.status))}</span></div>`;
       }).join("");
     }
   }
@@ -65,7 +65,7 @@
         (editing.splits || []).forEach((s) => { current[s.user_id] = s.share_amount; });
       }
       host.innerHTML = `<div class="split-rows">${members.map((m) => `
-        <label class="split-row"><span>${MB.personChip(m, members, "avatar-sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span>
+        <label class="split-row"><span>${MB.personChip(m, members, "sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span>
         <input type="number" min="0" step="0.01" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" /></label>`).join("")}</div>
         <p class="card-sub" id="split-sum"></p>`;
       host.querySelectorAll("[data-custom-id]").forEach((el) => el.addEventListener("input", updateSplitSum));
@@ -78,7 +78,7 @@
       const share = shares.find((s) => s.user_id === m.id);
       const checked = ids.includes(m.id) ? "checked" : "";
       const box = splitMode === "selected" ? `<input type="checkbox" data-split-id="${escapeHtml(m.id)}" ${checked} />` : "";
-      return `<label class="chip">${box}<span>${MB.personChip(m, members, "avatar-sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span><strong>${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
+      return `<label class="chip">${box}<span>${MB.personChip(m, members, "sm")}${m.id === MB.uid() ? " (you)" : ""}${statusPill(m.id)}</span><strong>${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
     }).join("");
     if (splitMode === "selected") {
       host.querySelectorAll("[data-split-id]").forEach((el) => el.addEventListener("change", renderSplitUi));
@@ -535,7 +535,7 @@
       const payer = editing.personal ? null : MB.memberRecord(editing.paid_by, members);
       $("tx-hero-sub").innerHTML = editing.personal
         ? (MB.friendlyDate(editing.date) || "")
-        : ("Paid by " + MB.personChip(payer, members, "avatar-sm") + " · " + MB.escapeHtml(MB.friendlyDate(editing.date) || ""));
+        : ("Paid by " + MB.personChip(payer, members, "sm") + " · " + MB.escapeHtml(MB.friendlyDate(editing.date) || ""));
     }
     if (tabs) {
       tabs.hidden = false;
@@ -558,7 +558,7 @@
           const person = MB.memberRecord(s.user_id, members);
           const st = s.status || "pending";
           const when = s.responded_at || s.forced_at || "";
-          let line = MB.personChip(person, members, "avatar-sm");
+          let line = MB.personChip(person, members, "sm");
           if (st === "accepted") line += s.forced_by ? " was marked as accepted" : " accepted their share";
           else if (st === "declined") line += " declined their share";
           else line += " hasn\u2019t accepted yet";
@@ -669,7 +669,7 @@
           host.innerHTML = "<h3>Force-accept shares</h3>" + pending.map((s) => {
             const m = members.find((x) => x.id === s.user_id);
             const name = (m && m.display_name) || "Member";
-            return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "avatar-sm")}<span>${escapeHtml(formatMoney(s.share_amount))} · ${escapeHtml(MB.splitStatusLabel(s.status))}</span><button type="button" class="text-btn" data-force="${escapeHtml(s.user_id)}">Mark as accepted</button></div>`;
+            return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "sm")}<span>${escapeHtml(formatMoney(s.share_amount))} · ${escapeHtml(MB.splitStatusLabel(s.status))}</span><button type="button" class="text-btn" data-force="${escapeHtml(s.user_id)}">Mark as accepted</button></div>`;
           }).join("");
           host.querySelectorAll("[data-force]").forEach((btn) => {
             btn.addEventListener("click", async () => {
