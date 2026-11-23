@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Monthly Budget">
-  <rect width="32" height="32" rx="8" fill="#9FE870"/>
-  <path fill="#163300" d="M16 4.6 3.864 14.944A7.3 7.3 0 0 0 8.6 27.8V13.2L16 7.8Z"/>
-  <path fill="#163300" d="M16 4.6 28.136 14.944A7.3 7.3 0 0 1 23.4 27.8V13.2L16 7.8Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="90 40 200 200" width="512" height="512" role="img" aria-label="Monthly Budget">
+  <rect x="90" y="40" width="200" height="200" rx="48" fill="#9FE870"/>
+  <circle cx="190" cy="140" r="62" fill="#163300"/>
+  <path d="M188 102 A38 38 0 0 0 188 178 Z" fill="#9FE870"/>
+  <path d="M192 102 A38 38 0 0 1 192 178 Z" fill="#E2F6D5"/>
+  <path d="M175 120 H205 M175 131 H205 M178 120 H184 C200 120 200 142 184 142 H178 L198 162" fill="none" stroke="#163300" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

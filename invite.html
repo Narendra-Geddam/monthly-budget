@@ -4,24 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="You're invited to join a roommate budget room on Monthly Budget." />
-  <meta name="theme-color" content="#10150C" />
+  <meta name="theme-color" content="#171816" />
   <meta name="color-scheme" content="dark light" />
   <title>You're invited · Monthly Budget</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=21" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.json?v=22" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=22" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Monthly Budget" />
   <meta property="og:title" content="You're invited to join a room on Monthly Budget" />
   <meta property="og:description" content="Tap to see the room and join your roommates. Shared expenses, settled fairly." />
-  <meta property="og:image" content="icons/og.png" />
+  <meta property="og:image" content="icons/og.png?v=22" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:url" content="invite.html" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="You're invited to join a room on Monthly Budget" />
   <meta name="twitter:description" content="Tap to see the room and join your roommates. Shared expenses, settled fairly." />
-  <meta name="twitter:image" content="icons/og.png" />
+  <meta name="twitter:image" content="icons/og.png?v=22" />
   <script>
     (function () {
       try {
@@ -29,7 +29,7 @@
         var path = location.pathname || "";
         var dir = path.slice(0, path.lastIndexOf("/") + 1) || "/";
         var url = origin + path + location.search;
-        var img = origin + dir + "icons/og.png";
+        var img = origin + dir + "icons/og.png?v=22";
         var ogImg = document.querySelector('meta[property="og:image"]');
         var twImg = document.querySelector('meta[name="twitter:image"]');
         var ogUrl = document.querySelector('meta[property="og:url"]');
@@ -53,7 +53,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#10150C");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#171816");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>

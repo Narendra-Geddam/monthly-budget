@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=21";
+  const MANIFEST_HREF = "manifest.json?v=22";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -56,7 +56,7 @@
       if (!document.querySelector('link[rel="apple-touch-icon"]')) {
         const link = document.createElement("link");
         link.rel = "apple-touch-icon";
-        link.href = withBase("icons/apple-touch-icon.png");
+        link.href = withBase("icons/apple-touch-icon.png?v=22");
         document.head.appendChild(link);
       }
       if ("serviceWorker" in navigator) {
@@ -205,7 +205,7 @@
   let profile = null;
   let currency = "INR";
 
-  const THEME_CHROME = { light: "#F4F4F2", dark: "#10150C" };
+  const THEME_CHROME = { light: "#F4F4F2", dark: "#171816" };
   function cssToken(name, fallback) {
     try {
       const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -369,10 +369,10 @@
   function memberBalances(members, expenses, splits, settlements) {
     const map = new Map();
     members.forEach((m) => {
-      map.set(m.id, { id: m.id, name: m.display_name || "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, avatar_url: m.avatar_url, pendingFrom: [], pendingTo: [] });
+      map.set(m.id, { id: m.id, name: m.display_name || "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, avatar_url: m.avatar_url, pendingFrom: [], pendingTo: [], receivedFrom: [], sentTo: [] });
     });
     const ensure = (id) => {
-      if (!map.has(id)) map.set(id, { id, name: "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, pendingFrom: [], pendingTo: [] });
+      if (!map.has(id)) map.set(id, { id, name: "Member", paid: 0, share: 0, collected: 0, pendingIn: 0, pendingOut: 0, sent: 0, received: 0, net: 0, pendingFrom: [], pendingTo: [], receivedFrom: [], sentTo: [] });
       return map.get(id);
     };
     const addPending = (list, id, name, cents) => {
@@ -409,8 +409,13 @@
     });
     settlements.forEach((s) => {
       if (!settlementConfirmed(s)) return;
-      ensure(s.from_user).sent += toCents(s.amount);
-      ensure(s.to_user).received += toCents(s.amount);
+      const cents = toCents(s.amount);
+      const from = ensure(s.from_user);
+      const to = ensure(s.to_user);
+      from.sent += cents;
+      to.received += cents;
+      addPending(from.sentTo, to.id, to.name, cents);
+      addPending(to.receivedFrom, from.id, from.name, cents);
     });
     for (const row of map.values()) {
       // Only accepted shares count toward the balance. "I paid" still shows the full amount.
@@ -449,13 +454,26 @@
     if ((row.pendingOutAmt || 0) > 0.004) {
       parts.push("Your " + formatMoney(row.pendingOutAmt) + " share hasn't been accepted yet");
     }
-    // Only confirmed settlements count as money already received or paid.
-    if ((row.receivedAmt || 0) > 0.004 && (row.sentAmt || 0) > 0.004) {
-      parts.push("After " + formatMoney(row.receivedAmt) + " already received and " + formatMoney(row.sentAmt) + " already paid");
-    } else if ((row.receivedAmt || 0) > 0.004) {
-      parts.push("After " + formatMoney(row.receivedAmt) + " already received");
-    } else if ((row.sentAmt || 0) > 0.004) {
-      parts.push("After " + formatMoney(row.sentAmt) + " already paid to roommates");
+    // Only confirmed settlements. Name who paid so this is not mistaken for a pending share.
+    const receivedFrom = row.receivedFrom || [];
+    const sentTo = row.sentTo || [];
+    if ((row.receivedAmt || 0) > 0.004) {
+      if (receivedFrom.length === 1) {
+        parts.push(receivedFrom[0].name + " already paid you " + formatMoney(fromCents(receivedFrom[0].amount)));
+      } else if (receivedFrom.length) {
+        parts.push("You've already received " + formatMoney(row.receivedAmt) + " from " + andNames(receivedFrom.map((p) => p.name)));
+      } else {
+        parts.push("You've already received " + formatMoney(row.receivedAmt));
+      }
+    }
+    if ((row.sentAmt || 0) > 0.004) {
+      if (sentTo.length === 1) {
+        parts.push("You already paid " + formatMoney(fromCents(sentTo[0].amount)) + " to " + sentTo[0].name);
+      } else if (sentTo.length) {
+        parts.push("You already paid " + formatMoney(row.sentAmt) + " to " + andNames(sentTo.map((p) => p.name)));
+      } else {
+        parts.push("You already paid " + formatMoney(row.sentAmt) + " to roommates");
+      }
     }
     if (!parts.length) return "";
     return parts.map((p) => p.endsWith(".") ? p : p + ".").join(" ");
@@ -911,7 +929,7 @@
       } else {
       header.innerHTML = `
         <a class="brand" href="dashboard.html" title="Monthly Budget home">
-          <img class="brand-logo" src="${withBase("favicon.svg")}" width="32" height="32" alt="" />
+          <img class="brand-logo" src="${withBase("favicon.svg?v=22")}" width="32" height="32" alt="" />
           <div class="brand-text">
             <p class="brand-kicker">Monthly Budget</p>
             <h1 id="room-name" class="room-name">Monthly Budget</h1>
@@ -1487,14 +1505,14 @@
     return Math.abs(h) % 360;
   }
   const AVATAR_PALETTE = [
-    { bg: "#163300", fg: "#9FE870" },
-    { bg: "#2F5711", fg: "#F3F7EE" },
-    { bg: "#1A3A0C", fg: "#D8F5B8" },
-    { bg: "#3F6212", fg: "#F3F7EE" },
-    { bg: "#245018", fg: "#E8F6D8" },
-    { bg: "#0F2410", fg: "#9FE870" },
-    { bg: "#4D7C0F", fg: "#F7FEE7" },
-    { bg: "#365314", fg: "#ECFCCB" },
+    { bg: "#2B2C29", fg: "#9FE870" },
+    { bg: "#4A4B48", fg: "#FFFFFF" },
+    { bg: "#1F3A5C", fg: "#D6E8FF" },
+    { bg: "#4A2C5A", fg: "#F3D9FF" },
+    { bg: "#3D2A1A", fg: "#FFD7B0" },
+    { bg: "#1F3D38", fg: "#B8F0E4" },
+    { bg: "#3A2A16", fg: "#F5D76E" },
+    { bg: "#2C2C4A", fg: "#C9C9FF" },
   ];
   function avatarSwatch(id) {
     const hue = avatarHue(id);

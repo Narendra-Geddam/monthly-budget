@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#10150C" />
+  <meta name="theme-color" content="#171816" />
   <meta name="color-scheme" content="dark light" />
   <title>Members · Monthly Budget</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=21" />
+  <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.json?v=22" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,7 +23,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#10150C");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#171816");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>

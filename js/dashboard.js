@@ -302,7 +302,9 @@
     if (netLabelEl) netLabelEl.textContent = cap.label;
     $("stat-net").textContent = cap.value;
     $("stat-net-card").className = "stat " + cap.cls;
-    if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", mine);
+    // Hero already shows this footnote; keep the My share tiles uncluttered.
+    const dashNote = $("stat-net-note");
+    if (dashNote) { dashNote.hidden = true; dashNote.textContent = ""; }
 
     if (ctx.pending && ctx.pending.length) {
       $("pending-section").hidden = false;

@@ -15,15 +15,15 @@
   }
 
   const axis = {
-    ticks: { color: "#8b949e", maxRotation: 0, autoSkip: true },
-    grid: { color: "rgba(139,148,158,.16)" },
+    ticks: { color: MB.cssToken("--muted", "#B5B5B0"), maxRotation: 0, autoSkip: true },
+    grid: { color: "rgba(181,181,176,.18)" },
   };
-  const legend = { labels: { color: "#e6edf3", boxWidth: 12 } };
+  const legend = { labels: { color: MB.cssToken("--text", "#FFFFFF"), boxWidth: 12 } };
 
   function highlightBars(values) {
     const accent = MB.cssToken("--accent", "#9FE870");
     const owe = MB.cssToken("--owe", "#FB7185");
-    const getback = MB.cssToken("--getback", "#3DDC97");
+    const getback = MB.cssToken("--getback", "#9FE870");
     if (!values.length) return values.map(() => accent);
     const max = Math.max(...values);
     const min = Math.min(...values);
