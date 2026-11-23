@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v20";
+const SHELL_CACHE = "mb-shell-v21";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -49,8 +49,21 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== SHELL_CACHE && k.startsWith("mb-shell-")).map((k) => caches.delete(k)));
+    const stale = keys.filter((k) => k !== SHELL_CACHE && k.startsWith("mb-shell-"));
+    await Promise.all(stale.map((k) => caches.delete(k)));
     await self.clients.claim();
+    // Old installed clients may still be showing a cache-first page and have no
+    // controllerchange listener. Force them onto the new HTML/JS after an upgrade.
+    if (stale.length) {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      await Promise.all(windows.map((client) => {
+        try { client.postMessage({ type: "MB_RELOAD" }); } catch (e) { /* ignore */ }
+        if (client && typeof client.navigate === "function" && client.url) {
+          return client.navigate(client.url).catch(() => {});
+        }
+        return null;
+      }));
+    }
   })());
 });
 

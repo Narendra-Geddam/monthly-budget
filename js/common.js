@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=20";
+  const MANIFEST_HREF = "manifest.json?v=21";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -69,10 +69,15 @@
           if (reg.waiting) promptSkip(reg.waiting);
         };
         // If a controller is already in place, a later controllerchange means a new SW just took over — reload so the user gets the new HTML/JS, not the in-memory stale page.
+        const reloadOnce = () => {
+          try {
+            if (sessionStorage.getItem("mb-sw-reloading")) return;
+            sessionStorage.setItem("mb-sw-reloading", "1");
+          } catch (e) { /* ignore */ }
+          location.reload();
+        };
         if (navigator.serviceWorker.controller) {
-          navigator.serviceWorker.addEventListener("controllerchange", () => {
-            location.reload();
-          });
+          navigator.serviceWorker.addEventListener("controllerchange", reloadOnce);
         }
         navigator.serviceWorker.register(withBase("sw.js"), {
           scope: (siteBase() || "") + "/",
@@ -95,6 +100,7 @@
         window.addEventListener("pageshow", (ev) => { if (ev.persisted) onVisible(); });
         navigator.serviceWorker.addEventListener("message", (ev) => {
           const data = ev.data || {};
+          if (data.type === "MB_RELOAD") { reloadOnce(); return; }
           if (data.type === "mb-push-received") {
             try { sessionStorage.setItem("mb-last-push", JSON.stringify(data.payload || {})); } catch (e) { /* ignore */ }
             try { window.dispatchEvent(new CustomEvent("mb-push-received", { detail: data.payload })); } catch (e2) { /* ignore */ }
@@ -460,6 +466,12 @@
     const text = balanceFootnote(row);
     el.hidden = !text;
     el.textContent = text || "";
+  }
+  function shareStatCaption(netAmt) {
+    const n = Number(netAmt) || 0;
+    if (Math.abs(n) < 0.005) return { label: "Balance", value: "Settled up", cls: "is-settled" };
+    if (n > 0) return { label: "To get", value: formatMoney(n), cls: "is-good" };
+    return { label: "You owe", value: formatMoney(Math.abs(n)), cls: "is-bad" };
   }
 
   // net > 0: others owe this person. net < 0: this person owes.
@@ -1771,7 +1783,7 @@
   }
   function injectFab() {
     const page = currentPage();
-    if (!["dashboard.html", "expenses.html", "activity.html"].includes(page)) return;
+    if (!["expenses.html", "activity.html"].includes(page)) return;
     if (document.getElementById("fab-root")) return;
     const scan = page === "personal.html" ? "add-expense.html?kind=personal&scan=1" : "add-expense.html?scan=1";
     const room = "add-expense.html?kind=room";
@@ -1908,7 +1920,7 @@
     friendlyDate, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch,
     renderOnboardingTip,
-    loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge,
+    loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
     isAdmin, isOwner, roleLabel, roomCategories, loadUnreadCount, setNotifBadge,
     colorForCategory, monthKeysBack, shiftMonth, loadRoomExpensesRange, loadPersonalRange,
     loadRoomCategoryBudgets, maybeBrowserNotify, requestBrowserNotify,

@@ -297,18 +297,11 @@
     if ($("stat-room")) $("stat-room").textContent = formatMoney(roomTotal);
     $("stat-paid").textContent = formatMoney(mine.paidAmt);
     $("stat-share").textContent = formatMoney(mine.shareAmt);
+    const cap = MB.shareStatCaption ? MB.shareStatCaption(mine.netAmt) : { label: net.text, value: formatMoney(Math.abs(mine.netAmt)), cls: net.cls };
     const netLabelEl = $("stat-net-label");
-    if (Math.abs(mine.netAmt) < 0.005) {
-      if (netLabelEl) netLabelEl.textContent = "My balance";
-      $("stat-net").textContent = "Settled up";
-    } else if (mine.netAmt > 0) {
-      if (netLabelEl) netLabelEl.textContent = "You'll get";
-      $("stat-net").textContent = formatMoney(mine.netAmt);
-    } else {
-      if (netLabelEl) netLabelEl.textContent = "You owe";
-      $("stat-net").textContent = formatMoney(Math.abs(mine.netAmt));
-    }
-    $("stat-net-card").className = "stat " + net.cls;
+    if (netLabelEl) netLabelEl.textContent = cap.label;
+    $("stat-net").textContent = cap.value;
+    $("stat-net-card").className = "stat " + cap.cls;
     if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", mine);
 
     if (ctx.pending && ctx.pending.length) {

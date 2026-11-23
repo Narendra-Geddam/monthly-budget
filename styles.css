@@ -53,7 +53,7 @@
   --nav-h: 64px;
   --bottom-nav-h: 72px;
   --fab-size: 56px;
-  --page-fab-clearance: calc(var(--fab-size) + 24px);
+  --page-fab-clearance: calc(var(--fab-size) + 32px);
   --space: 16px;
   --space-sm: 12px;
   --space-xs: 8px;
@@ -576,10 +576,42 @@ dialog::backdrop { background: rgba(8,10,8,.62); }
 .status-pill.is-declined { background: var(--danger-soft); color: var(--danger); }
 .my-share-hero { padding: 22px; }
 .my-share-hero h2 { font-family: var(--font-display); font-weight: 800; margin: 0; }
-.summary-grid.mine { margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.summary-grid.mine .stat { padding: 12px 10px 10px; }
-.summary-grid.mine .stat .value { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.summary-grid.mine .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
+.summary-grid.mine {
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+.summary-grid.mine .stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 10px 10px;
+}
+.summary-grid.mine .stat .label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  max-width: 100%;
+}
+.summary-grid.mine .stat .value {
+  font-size: clamp(0.92rem, 4.4vw, 1.12rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.15;
+  margin-top: auto;
+  padding-top: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
 .summary-grid.room-stats { margin-top: 0; }
 .stat.wide { grid-column: 1 / -1; }
 .notice {
@@ -1129,7 +1161,15 @@ html[data-theme="light"] .filter-chip.is-active { color: var(--accent-strong); b
 .stat.is-share, .stat.is-spent { background: var(--tint-share); border: 1px solid color-mix(in srgb, var(--muted) 28%, var(--border)); }
 .stat.is-good { background: var(--tint-get); border: 1px solid color-mix(in srgb, var(--getback) 40%, var(--border)); }
 .stat.is-bad { background: var(--tint-owe); border: 1px solid color-mix(in srgb, var(--owe) 40%, var(--border)); }
-.summary-grid.mine .stat { border-radius: 16px; padding: 14px 14px 12px; }
+.summary-grid.mine .stat { border-radius: 16px; }
+.stat.is-good .label { color: var(--getback); }
+.stat.is-bad .label { color: var(--owe); }
+@media (max-width: 400px) {
+  .summary-grid.mine { gap: 6px; }
+  .summary-grid.mine .stat { padding: 10px 8px 8px; }
+  .summary-grid.mine .stat .label { font-size: 0.68rem; letter-spacing: 0.03em; }
+  .summary-grid.mine .stat .value { font-size: clamp(0.86rem, 4.8vw, 1.02rem); }
+}
 .card.stat.is-paid { background: var(--tint-paid); }
 .card.stat.is-share { background: var(--tint-share); }
 .card.stat.is-good { background: var(--tint-get); }
