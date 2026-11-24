@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=24";
+  const MANIFEST_HREF = "manifest.json?v=25";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -168,6 +168,7 @@
     plus: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     share: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="8" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.7 10.5 13.3 8.5M10.7 13.5 13.3 15.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     more: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg>',
+    kebab: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="6" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="18" r="1.7" fill="currentColor"/></svg>',
     sun: '<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     moon: '<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M16.5 13A7 7 0 1 1 11 5.5 5.5 5.5 0 0 0 16.5 13Z" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     prev: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15.5 5 8.5 12l7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -205,7 +206,7 @@
   let profile = null;
   let currency = "INR";
 
-  const THEME_CHROME = { light: "#F4F4F2", dark: "#131512" };
+  const THEME_CHROME = { light: "#F4F4F2", dark: "#0E1410" };
   function cssToken(name, fallback) {
     try {
       const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -770,9 +771,9 @@
       ${actions}
     </div>`;
   }
-  function memberNetChip(netAmt) {
+  function memberNetChip(netAmt, compact) {
     if (Math.abs(netAmt) < 0.005) return `<span class="net-chip is-settled">settled</span>`;
-    if (netAmt > 0) return `<span class="net-chip is-good">gets back ${escapeHtml(formatMoney(netAmt))}</span>`;
+    if (netAmt > 0) return `<span class="net-chip is-good">${compact ? "gets" : "gets back"} ${escapeHtml(formatMoney(netAmt))}</span>`;
     return `<span class="net-chip is-bad">owes ${escapeHtml(formatMoney(Math.abs(netAmt)))}</span>`;
   }
   function balanceHeadline(userId, balances) {
@@ -1060,13 +1061,19 @@
   }
 
   let moreSheetPushed = false;
-  function moreRow(href, icon, label, badgeAttr) {
+  function moreRow(href, icon, label, badgeAttr, tint) {
     return `<a class="sheet-row" href="${href}">
-      <span class="sheet-icon" aria-hidden="true">${icon}</span>
+      <span class="sheet-icon ${tint || "is-lime"}" aria-hidden="true">${icon}</span>
       <span class="sheet-label">${label}</span>
       ${badgeAttr ? `<span class="badge" ${badgeAttr} hidden></span>` : ""}
       <span class="sheet-chevron" aria-hidden="true">${ICONS.chevron}</span>
     </a>`;
+  }
+  function moreSection(title, rows) {
+    return `<section class="sheet-section">
+      <h3 class="sheet-section-label">${title}</h3>
+      <nav class="sheet-list">${rows}</nav>
+    </section>`;
   }
   function hideFabMenu() {
     const root = document.getElementById("fab-root");
@@ -1099,18 +1106,24 @@
         <p class="sheet-title" id="more-sheet-title">More</p>
         <button type="button" class="sheet-close" id="sheet-close" aria-label="Close">${ICONS.close}</button>
       </header>
-      <nav class="sheet-list">
-        ${moreRow("analytics.html", ICONS.chart, "Analytics")}
-        ${moreRow("members.html", ICONS.users, "Members")}
-        ${moreRow("notifications.html", ICONS.bell, "Notifications", "data-notif-badge")}
-        ${moreRow("my-share.html", ICONS.wallet, "My share")}
-        ${moreRow("settle.html", ICONS.arrowIn, "Settle up")}
-        ${moreRow("requests.html", ICONS.list, "Share requests", "data-pending-badge")}
-        ${moreRow("room.html", ICONS.home, "Room &amp; invite")}
-        ${moreRow("room-settings.html", ICONS.gear, "Room settings")}
-        ${moreRow("expenses.html", ICONS.list, "All expenses")}
-        ${moreRow("profile.html", ICONS.user, "Profile")}
-      </nav>
+      <div class="sheet-body">
+        ${moreSection("Money", [
+          moreRow("my-share.html", ICONS.wallet, "My share", null, "is-lime"),
+          moreRow("settle.html", ICONS.arrowIn, "Settle up", null, "is-forest"),
+          moreRow("requests.html", ICONS.list, "Share requests", "data-pending-badge", "is-mint"),
+          moreRow("expenses.html", ICONS.list, "All expenses", null, "is-lime"),
+          moreRow("analytics.html", ICONS.chart, "Analytics", null, "is-forest"),
+        ].join(""))}
+        ${moreSection("Room", [
+          moreRow("members.html", ICONS.users, "Members", null, "is-forest"),
+          moreRow("room.html", ICONS.home, "Room &amp; invite", null, "is-lime"),
+          moreRow("room-settings.html", ICONS.gear, "Room settings", null, "is-mint"),
+        ].join(""))}
+        ${moreSection("You", [
+          moreRow("profile.html", ICONS.user, "Profile", null, "is-forest"),
+          moreRow("notifications.html", ICONS.bell, "Notifications", "data-notif-badge", "is-lime"),
+        ].join(""))}
+      </div>
     </div>`;
     back.addEventListener("click", (e) => { if (e.target === back) closeMoreSheet(); });
     document.body.appendChild(back);
@@ -1141,6 +1154,56 @@
     } else {
       moreSheetPushed = false;
     }
+  }
+
+  function closeActionSheet() {
+    const el = $("action-sheet");
+    if (el) el.remove();
+    window.removeEventListener("keydown", onActionSheetKeydown);
+  }
+  function onActionSheetKeydown(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeActionSheet();
+    }
+  }
+  function openActionSheet(opts) {
+    opts = opts || {};
+    closeActionSheet();
+    const items = (opts.items || []).map((it, i) => {
+      if (!it || !it.label) return "";
+      return `<button type="button" class="sheet-row${it.danger ? " is-danger" : ""}" data-action-idx="${i}">
+        <span class="sheet-label">${escapeHtml(it.label)}</span>
+      </button>`;
+    }).join("");
+    const back = document.createElement("div");
+    back.className = "sheet-backdrop";
+    back.id = "action-sheet";
+    back.innerHTML = `<div class="sheet action-sheet" role="dialog" aria-modal="true" aria-labelledby="action-sheet-title">
+      <header class="sheet-head">
+        <p class="sheet-title" id="action-sheet-title">${escapeHtml(opts.title || "Actions")}</p>
+        <button type="button" class="sheet-close" id="action-sheet-close" aria-label="Close">${ICONS.close}</button>
+      </header>
+      <div class="sheet-body">
+        <nav class="sheet-list">${items}</nav>
+      </div>
+    </div>`;
+    const finish = () => closeActionSheet();
+    back.addEventListener("click", (e) => { if (e.target === back) finish(); });
+    document.body.appendChild(back);
+    const closeBtn = $("action-sheet-close");
+    if (closeBtn) closeBtn.addEventListener("click", finish);
+    back.querySelectorAll("[data-action-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-action-idx"));
+        const item = (opts.items || [])[idx];
+        finish();
+        if (item && typeof item.onSelect === "function") item.onSelect();
+      });
+    });
+    window.addEventListener("keydown", onActionSheetKeydown);
+    try { (closeBtn || back.querySelector("[data-action-idx]") || back).focus(); } catch (err) { /* ignore */ }
+    return back;
   }
 
   function showPageError(message) {
@@ -1995,7 +2058,7 @@
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
     memberBalances, settleSuggestions, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState,
+    friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState, openActionSheet, closeActionSheet,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,

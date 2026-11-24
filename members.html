@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
-  <meta name="theme-color" content="#131512" />
+  <meta name="theme-color" content="#0E1410" />
   <meta name="color-scheme" content="dark light" />
   <title>Members · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=24" />
+  <link rel="manifest" href="manifest.json?v=25" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,7 +23,7 @@
         if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#131512");
+        if (m) m.setAttribute("content", t === "light" ? "#F4F4F2" : "#0E1410");
       } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
     })();
   </script>
@@ -32,11 +32,11 @@
   <header id="topbar" class="topbar"></header>
   <main class="page" id="main">
 
-    <section class="card" id="admin-joins" hidden>
+    <section class="card is-outline" id="admin-joins" hidden>
       <header class="card-head"><div><h2>Pending join requests</h2><p class="card-sub">People who asked to join with the room code.</p></div></header>
       <div id="join-request-list"></div>
     </section>
-    <section class="card" id="invite-card" hidden>
+    <section class="card is-outline" id="invite-card" hidden>
       <h2>Add a roommate</h2>
       <p class="card-sub">Invite someone who already has an account by email. If they do not, share the invite link instead.</p>
       <form id="invite-form">
@@ -46,7 +46,7 @@
       <p class="form-error" id="invite-error" hidden></p>
       <p class="form-ok" id="invite-ok" hidden></p>
     </section>
-    <section class="card">
+    <section class="card is-outline" id="roommates-card">
       <header class="card-head">
         <div>
           <h2>Roommates</h2>

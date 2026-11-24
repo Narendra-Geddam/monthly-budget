@@ -44,48 +44,64 @@
     const balances = MB.memberBalances(members, expenses, splits, settlements);
     const byId = Object.fromEntries(members.map((m) => [m.id, m]));
 
+    async function setRole(userId, role) {
+      const msg = role === "owner" ? "Transfer ownership to this person? You will become an admin." : "Change this member's role?";
+      if (!confirm(msg)) return;
+      const { error } = await MB.client().rpc("set_member_role", { p_room_id: ctx.room.id, p_user_id: userId, p_role: role });
+      if (error) return MB.showPageError(errorMessage(error));
+      location.reload();
+    }
+    async function removeMember(userId) {
+      if (!confirm("Remove this member from the room?")) return;
+      const { error } = await MB.client().rpc("remove_member", { p_room_id: ctx.room.id, p_user_id: userId });
+      if (error) return MB.showPageError(errorMessage(error));
+      location.reload();
+    }
+
     $("list").innerHTML = balances.map((b) => {
       const m = byId[b.id] || { role: "member" };
-      let actions = "";
-      if (ctx.isAdmin && b.id !== ctx.uid) {
-        if (ctx.isOwner && m.role !== "owner") {
-          if (m.role === "admin") actions += `<button type="button" class="text-btn" data-role="${b.id}" data-to="member">Demote</button>`;
-          else actions += `<button type="button" class="text-btn" data-role="${b.id}" data-to="admin">Make admin</button>`;
-          actions += `<button type="button" class="text-btn" data-role="${b.id}" data-to="owner">Transfer ownership</button>`;
-        }
-        if (m.role !== "owner") actions += `<button type="button" class="text-btn danger-link" data-remove="${b.id}">Remove</button>`;
-      }
-      const role = MB.roleLabel(m.role);
-      const roleBadge = (m.role === "owner" || m.role === "admin") ? ` <span class="role-badge">${escapeHtml(role)}</span>` : "";
+      const canAct = ctx.isAdmin && b.id !== ctx.uid && m.role !== "owner";
+      const canOwnTools = ctx.isOwner && b.id !== ctx.uid && m.role !== "owner";
       const person = Object.assign({ id: b.id, display_name: b.name, avatar_url: m.avatar_url || b.avatar_url }, m);
-      return `<div class="member-card">
-        <a href="member.html?id=${escapeHtml(b.id)}" style="color:inherit;text-decoration:none;flex:1;min-width:0">
-          <div class="item-title">${MB.personChip(person, members, "md")}${b.id === ctx.uid ? " (you)" : ""}${roleBadge}</div>
-          <div class="item-sub">Paid ${escapeHtml(formatMoney(b.paidAmt))} · share ${escapeHtml(formatMoney(b.shareAmt))}</div>
+      const chips = [
+        b.id === ctx.uid ? `<span class="role-badge">You</span>` : "",
+        (m.role === "owner" || m.role === "admin") ? `<span class="role-badge">${escapeHtml(MB.roleLabel(m.role))}</span>` : "",
+      ].filter(Boolean).join("");
+      const kebab = canAct || canOwnTools ? `<button type="button" class="kebab-btn" data-member-menu="${escapeHtml(b.id)}" aria-haspopup="dialog" aria-label="Actions for ${escapeHtml(b.name)}">${MB.ICONS && MB.ICONS.kebab ? MB.ICONS.kebab : "⋯"}</button>` : "";
+      return `<div class="member-row">
+        <a class="member-main" href="member.html?id=${encodeURIComponent(b.id)}">
+          ${MB.avatarHtml(person, "md")}
+          <span class="member-copy">
+            <span class="member-name-line">
+              <span class="member-name">${escapeHtml(b.name)}</span>
+              ${chips}
+            </span>
+            <span class="member-meta">Paid ${escapeHtml(formatMoney(b.paidAmt))} · share ${escapeHtml(formatMoney(b.shareAmt))}</span>
+          </span>
+          ${MB.memberNetChip(b.netAmt, true)}
         </a>
-        <div class="member-actions">
-          ${MB.memberNetChip(b.netAmt)}
-          ${actions}
-        </div>
+        ${kebab}
       </div>`;
     }).join("") || MB.emptyState({ art: "images/illu-people.webp", title: "Add your people, near and far", text: "Invite a roommate to start splitting bills.", href: "room.html", cta: "Invite someone" });
 
-    $("list").querySelectorAll("[data-role]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const role = btn.getAttribute("data-to");
-        const msg = role === "owner" ? "Transfer ownership to this person? You will become an admin." : "Change this member's role?";
-        if (!confirm(msg)) return;
-        const { error } = await MB.client().rpc("set_member_role", { p_room_id: ctx.room.id, p_user_id: btn.getAttribute("data-role"), p_role: role });
-        if (error) return MB.showPageError(errorMessage(error));
-        location.reload();
-      });
-    });
-    $("list").querySelectorAll("[data-remove]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!confirm("Remove this member from the room?")) return;
-        const { error } = await MB.client().rpc("remove_member", { p_room_id: ctx.room.id, p_user_id: btn.getAttribute("data-remove") });
-        if (error) return MB.showPageError(errorMessage(error));
-        location.reload();
+    $("list").querySelectorAll("[data-member-menu]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.getAttribute("data-member-menu");
+        const m = byId[id] || {};
+        const name = (m.display_name || m.name || "Member");
+        const items = [];
+        if (ctx.isOwner && m.role !== "owner") {
+          if (m.role === "admin") items.push({ label: "Demote", onSelect: () => setRole(id, "member") });
+          else items.push({ label: "Make admin", onSelect: () => setRole(id, "admin") });
+          items.push({ label: "Transfer ownership", onSelect: () => setRole(id, "owner") });
+        }
+        if (ctx.isAdmin && m.role !== "owner") {
+          items.push({ label: "Remove", danger: true, onSelect: () => removeMember(id) });
+        }
+        if (!items.length) return;
+        MB.openActionSheet({ title: name, items });
       });
     });
 
