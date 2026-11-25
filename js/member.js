@@ -29,7 +29,7 @@
     }
     $("stat-net-card").className = "card stat " + net.cls;
     if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", row);
-    const paid = expenses.filter((e) => e.paid_by === id);
+    const paid = expenses.filter((e) => e && e.paid_by === id);
     $("paid-list").innerHTML = paid.length ? paid.map((e) => `
       <a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}">
         <div class="item-icon">${escapeHtml(e.category.slice(0,1))}</div>

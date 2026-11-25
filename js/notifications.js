@@ -46,8 +46,8 @@
       <a class="list-item notif-item ${n.read_at ? "" : "is-unread"}" href="${escapeHtml(n.link || "dashboard.html")}" data-id="${escapeHtml(n.id)}">
         ${MB.avatarHtml({ id: n.actor_id || n.from_user || n.body, display_name: n.title, avatar_url: n.actor_avatar || n.avatar_url }, "md")}
         <div>
-          <div class="item-title">${n.actor_id ? MB.personChip({ id: n.actor_id, display_name: n.title, avatar_url: n.actor_avatar || n.avatar_url }, null, "sm") : escapeHtml(n.title)}</div>
-          <div class="item-sub">${escapeHtml(n.body || "")} ${n.body ? "· " : ""}${escapeHtml(timeLabel(n.created_at))}</div>
+          <div class="item-title">${n.actor_id ? MB.personChip({ id: n.actor_id, display_name: displayNotice(n.title, n.body), avatar_url: n.actor_avatar || n.avatar_url }, null, "sm") : escapeHtml(displayNotice(n.title, n.body))}</div>
+          <div class="item-sub">${escapeHtml(displayNotice(n.body, "") || "")}${(n.body) ? " · " : ""}${escapeHtml(timeLabel(n.created_at))}</div>
         </div>
       </a>`).join("") : MB.emptyState({ art: "images/illu-people.webp", title: "Nothing in your inbox", text: "You'll see join requests, share requests, and payment updates here." });
 

@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Activity · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=25" />
+  <link rel="manifest" href="manifest.json?v=26" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -31,16 +31,26 @@
 <body>
   <header id="topbar" class="topbar"></header>
   <main class="page" id="main">
-    <section class="card is-outline">
-      <header class="card-head">
+    <section class="card is-outline activity-card">
+      <header class="card-head activity-head">
         <div>
-          <h2>Activity</h2>
-          <p class="card-sub">Everything happening in your rooms, newest first — like a payment feed.</p>
+          <div class="activity-title-row">
+            <h2>Activity</h2>
+            <a class="activity-expenses-link" href="expenses.html">Expenses</a>
+          </div>
+          <p class="card-sub">Newest first, like a payment feed.</p>
         </div>
-        <a href="expenses.html">All expenses</a>
       </header>
-      <div class="chip-row scope-chips" id="scope-chips" role="tablist" aria-label="Filter by room"></div>
-      <div class="chip-row kind-chips" id="kind-chips" role="tablist" aria-label="Filter by type"></div>
+      <div class="activity-filters">
+        <label class="field">
+          <span>Room</span>
+          <select id="scope-filter" class="select pill-select" aria-label="Room"></select>
+        </label>
+        <label class="field">
+          <span>Type</span>
+          <select id="kind-filter" class="select pill-select" aria-label="Type"></select>
+        </label>
+      </div>
     </section>
     <div id="activity-feed" class="activity-feed"></div>
     <div id="activity-more-wrap" class="activity-more-wrap" hidden>

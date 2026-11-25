@@ -73,6 +73,7 @@
         <input type="number" min="0" step="0.01" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" /></label>`).join("") + `<p class="card-sub" id="split-sum"></p>`;
       host.querySelectorAll("[data-custom-id]").forEach((el) => el.addEventListener("input", updateSplitSum));
       updateSplitSum();
+      if (typeof validateExpense === "function") validateExpense(false);
       return;
     }
     const ids = selectedMemberIds();
@@ -86,6 +87,7 @@
     if (splitMode === "selected") {
       host.querySelectorAll("[data-split-id]").forEach((el) => el.addEventListener("change", renderSplitUi));
     }
+    if (typeof validateExpense === "function") validateExpense(false);
   }
 
   function updateSplitSum() {
@@ -126,7 +128,69 @@
     else if (ctx && ctx.room) {
       $("exp-category").innerHTML = MB.roomCategories(ctx.room).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     }
+    if (MB.decorateRequiredFields) MB.decorateRequiredFields($("expense-form"));
+    if (typeof validateExpense === "function") validateExpense(false);
   }
+
+  function collectExpenseErrors() {
+    const errors = [];
+    const amountEl = $("exp-amount");
+    const descEl = $("exp-desc");
+    const catEl = $("exp-category");
+    const dateEl = $("exp-date");
+    const paidEl = $("exp-paid-by");
+    const amount = Number(amountEl && amountEl.value);
+    const description = descEl ? descEl.value.trim() : "";
+    const category = catEl ? catEl.value : "";
+    const date = dateEl ? dateEl.value : "";
+    if (!amount || amount <= 0) errors.push({ el: amountEl, message: "Enter an amount greater than zero." });
+    if (!description) errors.push({ el: descEl, message: "Add a short description." });
+    if (!category) errors.push({ el: catEl, message: "Choose a category." });
+    if (!date) errors.push({ el: dateEl, message: "Pick a date." });
+    if (kind === "room") {
+      if (!paidEl || !paidEl.value) errors.push({ el: paidEl, message: "Choose who paid." });
+      const items = collectItems();
+      let splits = collectSplits();
+      if (items.length && typeof MB.itemizedSplits === "function") {
+        const tax = Number($("exp-tax") && $("exp-tax").value) || 0;
+        const tip = Number($("exp-tip") && $("exp-tip").value) || 0;
+        splits = MB.itemizedSplits(items, tax, tip);
+      }
+      const splitHost = $("split-box") || $("split-error");
+      if (!splits.length) {
+        errors.push({
+          el: splitHost,
+          message: splitMode === "selected" ? "Select at least one roommate." : "Choose at least one roommate to split with.",
+        });
+      } else if (!items.length && amount > 0) {
+        const sum = splits.reduce((acc, x) => acc + Number(x.share_amount), 0);
+        if (Math.abs(sum - amount) > 0.02) {
+          errors.push({ el: splitHost, message: "Custom split amounts must add up to the total." });
+        }
+      }
+      const roomCur = (window._mbRoomCurrency || MB.currency);
+      const expCur = ($("exp-currency") && $("exp-currency").value) || roomCur;
+      if (expCur && roomCur && expCur !== roomCur) {
+        const fxEl = $("exp-fx-rate");
+        if (!Number(fxEl && fxEl.value)) errors.push({ el: fxEl, message: "Enter or fetch an exchange rate." });
+      }
+    }
+    return errors;
+  }
+
+  let validateExpense = (focus) => {
+    const errors = collectExpenseErrors();
+    const ok = !errors.some((e) => e && e.message);
+    const form = $("expense-form");
+    if (MB.applyFormErrors && form) {
+      if (focus || (form.querySelector && form.querySelector(".field-error:not([hidden])"))) {
+        return MB.applyFormErrors(form, errors, { button: $("exp-save"), focus: !!focus });
+      }
+    }
+    const btn = $("exp-save");
+    if (btn) btn.disabled = !ok;
+    return ok;
+  };
 
   async function savePersonal() {
     const amount = Number($("exp-amount").value);
@@ -161,6 +225,7 @@
   async function save(event) {
     event.preventDefault();
     hideError("form-error");
+    if (!validateExpense(true)) return;
     if (kind === "personal") return savePersonal();
     const description = $("exp-desc").value.trim();
     const category = $("exp-category").value;
@@ -562,7 +627,10 @@
           const st = s.status || "pending";
           const when = s.responded_at || s.forced_at || "";
           let line = MB.personChip(person, members, "sm");
-          if (st === "accepted") line += s.forced_by ? " was marked as accepted" : " accepted their share";
+          if (st === "accepted") {
+            const by = s.forced_by ? MB.displayName(s.forced_by, members) : "";
+            line += s.forced_by ? ((" was accepted by " + by) ) : " accepted their share";
+          }
           else if (st === "declined") line += " declined their share";
           else line += " hasn\u2019t accepted yet";
           line += " · " + escapeHtml(formatMoney(s.share_amount));
@@ -606,7 +674,7 @@
     if (kind === "room" && !ctx.isAdmin && ctx.room.members_can_add_expenses === false && !id) {
       $("expense-form").hidden = true;
       $("no-room").hidden = false;
-      $("no-room").innerHTML = "Only admins can add expenses in this room. <a href=\"dashboard.html\">Go to dashboard</a>";
+      $("no-room").innerHTML = "Only people who can manage the room can add expenses here. <a href=\"dashboard.html\">Go to dashboard</a>";
       return;
     }
     $("exp-category").innerHTML = MB.roomCategories(ctx.room).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
@@ -655,11 +723,11 @@
       $("exp-delete").hidden = !canEdit;
       if (!canEdit) {
         $("expense-form").querySelectorAll("input, select, textarea, button[type=submit]").forEach((el) => { el.disabled = true; });
-        showError("form-error", "Only the person who added this expense or an admin can edit it.");
+        showError("form-error", "Only the person who added this expense, or someone who can manage the room, can edit it.");
       } else if (ctx.isAdmin && exp.created_by !== ctx.uid) {
         const note = document.createElement("p");
         note.className = "notice";
-        note.textContent = "You are editing this as an admin. The original creator and affected members will be notified.";
+        note.textContent = "You are editing someone else's expense. The person who added it and anyone affected will be notified.";
         $("expense-form").insertBefore(note, $("expense-form").firstChild);
       }
       if (ctx.isAdmin) {
@@ -669,7 +737,7 @@
         $("expense-form").appendChild(host);
         const pending = (editing.splits || []).filter((s) => s.status === "pending" || s.status === "declined");
         if (pending.length) {
-          host.innerHTML = "<h3>Force-accept shares</h3>" + pending.map((s) => {
+          host.innerHTML = "<h3>Mark shares as accepted</h3>" + pending.map((s) => {
             const m = members.find((x) => x.id === s.user_id);
             const name = (m && m.display_name) || "Member";
             return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "sm")}<span>${escapeHtml(formatMoney(s.share_amount))} · ${escapeHtml(MB.splitStatusLabel(s.status))}</span><button type="button" class="text-btn" data-force="${escapeHtml(s.user_id)}">Mark as accepted</button></div>`;
@@ -698,6 +766,11 @@
     $("exp-delete").addEventListener("click", removeExpense);
     refreshStatusPanel();
     renderSplitUi();
+    if (MB.bindFormValidation) {
+      validateExpense = MB.bindFormValidation($("expense-form"), collectExpenseErrors, { button: $("exp-save") });
+    } else {
+      validateExpense(false);
+    }
     paintTxDetail();
     await setupExtras(ctx);
   }

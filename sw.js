@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v25";
+const SHELL_CACHE = "mb-shell-v26";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -125,13 +125,15 @@ self.addEventListener("push", (event) => {
   if (n && url.indexOf("n=") === -1) {
     url += (url.indexOf("?") >= 0 ? "&" : "?") + "n=" + encodeURIComponent(n);
   }
+  const tag = payload.tag || (n ? "mb-" + n : "mb-" + Date.now() + "-" + Math.random().toString(16).slice(2));
   const opts = {
     body: payload.body || "",
     icon: payload.icon && /^https?:/i.test(payload.icon) ? payload.icon : withBase("icons/icon-192.png"),
     badge: payload.badge && /^https?:/i.test(payload.badge) ? payload.badge : withBase("icons/icon-192.png"),
-    tag: payload.tag || (n ? "mb-" + n : "monthly-budget"),
+    tag,
     renotify: true,
-    vibrate: payload.vibrate || [120, 60, 120],
+    silent: false,
+    vibrate: payload.vibrate || [200, 100, 200],
     data: { url: url, id: n, receivedAt: Date.now() },
   };
   event.waitUntil((async () => {

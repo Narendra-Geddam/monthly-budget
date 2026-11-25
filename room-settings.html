@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Admin settings for your room." />
+  <meta name="description" content="Settings for your room." />
   <meta name="theme-color" content="#0E1410" />
   <meta name="color-scheme" content="dark light" />
   <title>Room settings · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=25" />
+  <link rel="manifest" href="manifest.json?v=26" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -77,15 +77,16 @@
     </section>
     <section class="card" id="recurring-card" hidden>
       <h3>Monthly recurring expenses</h3>
-      <p class="card-sub">Rent, wifi, and other bills can be generated automatically each month. The payer’s share is auto-accepted; others still need to accept, or an admin can force-accept.</p>
+      <p class="card-sub">Rent, wifi, and other bills can be generated automatically each month. The payer’s share is auto-accepted; others still need to accept, or someone in the room can mark a share as accepted.</p>
       <div id="recurring-list"></div>
-      <form id="recurring-form" style="margin-top:16px">
+      <form id="recurring-form" style="margin-top:16px" novalidate>
         <label class="field"><span>Description</span><input type="text" id="rec-desc" maxlength="160" required placeholder="e.g. Rent" /></label>
         <label class="field"><span>Amount</span><input type="number" id="rec-amount" min="0.01" step="0.01" required /></label>
-        <label class="field"><span>Category</span><select id="rec-category" class="select"></select></label>
-        <label class="field"><span>Paid by</span><select id="rec-paid-by" class="select"></select></label>
+        <label class="field"><span>Category</span><select id="rec-category" class="select" required></select></label>
+        <label class="field"><span>Paid by</span><select id="rec-paid-by" class="select" required></select></label>
         <label class="field"><span>Day of month</span><input type="number" id="rec-day" min="1" max="28" value="1" required /></label>
-        <button type="submit" class="secondary-btn">Add recurring expense</button>
+        <p class="form-error" id="rec-error" hidden></p>
+        <button type="submit" class="secondary-btn" id="rec-save">Add recurring expense</button>
       </form>
     </section>
     <section class="card" id="cat-budget-card" hidden>

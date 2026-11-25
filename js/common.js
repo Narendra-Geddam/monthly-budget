@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=25";
+  const MANIFEST_HREF = "manifest.json?v=26";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -247,8 +247,11 @@
   }
   function errorMessage(err) {
     if (!err) return "Something went wrong.";
-    return (err.message || err.error_description || String(err))
+    let text = (err.message || err.error_description || String(err));
+    text = text
       .replace(/^.*?(Not authenticated|You are not a member of this room|Payer must be a room member|All participants must be room members|Splits must add up to the expense amount|At least one split is required|Only the person who added this expense can edit it|Expense not found|Enter a valid 6-character join code|No room found for that code|Room name is required)/i, "$1");
+    text = text.replace(/\ban admin\b/gi, "a roommate").replace(/\bAn admin\b/g, "A roommate");
+    return text;
   }
   function currentTheme() {
     return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
@@ -431,16 +434,20 @@
       // Legacy rows with no status were treated as confirmed payments.
       return !st;
     };
-    const expenseById = new Map((expenses || []).map((e) => [e.id, e]));
-    expenses.forEach((e) => { ensure(e.paid_by).paid += toCents(e.amount); });
-    splits.forEach((s) => {
+    const expenseById = new Map((expenses || []).filter((e) => e && e.id).map((e) => [e.id, e]));
+    (expenses || []).forEach((e) => {
+      if (!e || !e.paid_by) return;
+      ensure(e.paid_by).paid += toCents(e.amount);
+    });
+    (splits || []).forEach((s) => {
+      if (!s) return;
       const cents = toCents(s.share_amount);
       const exp = expenseById.get(s.expense_id);
       if (s.status === "accepted") {
-        ensure(s.user_id).share += cents;
-        if (exp) ensure(exp.paid_by).collected += cents;
+        if (s.user_id) ensure(s.user_id).share += cents;
+        if (exp && exp.paid_by) ensure(exp.paid_by).collected += cents;
       } else if (s.status === "pending") {
-        if (exp && exp.paid_by !== s.user_id) {
+        if (exp && exp.paid_by && exp.paid_by !== s.user_id) {
           const payer = ensure(exp.paid_by);
           const debtor = ensure(s.user_id);
           payer.pendingIn += cents;
@@ -657,7 +664,7 @@
   function isOwner(room) { return !!(room && room.role === "owner"); }
   function roleLabel(role) {
     if (role === "owner") return "Owner";
-    if (role === "admin") return "Admin";
+    if (role === "admin") return "";
     return "Member";
   }
   function roomCategories(room) {
@@ -709,7 +716,7 @@
     const key = splitStatusKey(status);
     if (key === "accepted") return "Accepted";
     if (key === "declined") return "Declined";
-    if (key === "forced") return "Forced";
+    if (key === "forced") return "Accepted";
     return "Pending";
   }
   function statusChip(splitOrStatus, name) {
@@ -756,7 +763,45 @@
     return `<span class="cat-chip" style="--cat:${escapeHtml(color)}"><span class="cat-ico" aria-hidden="true">${categoryIcon(name)}</span>${escapeHtml(name || "Other")}</span>`;
   }
   function infoTip(text) {
-    return `<details class="info-tip"><summary aria-label="What this means"><span aria-hidden="true">i</span></summary><p>${escapeHtml(text)}</p></details>`;
+    return `<span class="info-tip"><button type="button" class="info-tip-btn" aria-label="What this means" aria-expanded="false"><span aria-hidden="true">i</span></button><span class="info-tip-pop" hidden role="tooltip">${escapeHtml(text)}</span></span>`;
+  }
+  function closeInfoTip(tip) {
+    if (!tip) return;
+    tip.classList.remove("is-open");
+    const btn = tip.querySelector(".info-tip-btn");
+    const pop = tip.querySelector(".info-tip-pop");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+    if (pop) pop.hidden = true;
+  }
+  function bindInfoTips() {
+    if (bindInfoTips._bound) return;
+    bindInfoTips._bound = true;
+    document.addEventListener("click", (ev) => {
+      const btn = ev.target.closest && ev.target.closest(".info-tip-btn");
+      const tip = btn && btn.closest(".info-tip");
+      document.querySelectorAll(".info-tip.is-open").forEach((el) => {
+        if (el !== tip) closeInfoTip(el);
+      });
+      if (tip) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const open = !tip.classList.contains("is-open");
+        if (open) {
+          tip.classList.add("is-open");
+          const b = tip.querySelector(".info-tip-btn");
+          const pop = tip.querySelector(".info-tip-pop");
+          if (b) b.setAttribute("aria-expanded", "true");
+          if (pop) pop.hidden = false;
+        } else closeInfoTip(tip);
+        return;
+      }
+      if (!(ev.target.closest && ev.target.closest(".info-tip-pop"))) {
+        document.querySelectorAll(".info-tip.is-open").forEach(closeInfoTip);
+      }
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") document.querySelectorAll(".info-tip.is-open").forEach(closeInfoTip);
+    });
   }
   function emptyState(opts) {
     const o = opts || {};
@@ -822,10 +867,11 @@
     return formatMoney(spent) + " spent this month";
   }
   function expenseRowHtml(expense, opts) {
+    if (!expense || !expense.id) return "";
     const o = opts || {};
     const members = o.members || [];
     const allSplits = o.splits || [];
-    const splits = allSplits.filter((s) => s.expense_id === expense.id);
+    const splits = allSplits.filter((s) => s && s.expense_id === expense.id);
     const href = o.href || ("add-expense.html?id=" + expense.id);
     const receipt = o.receipt || "";
     const payer = memberRecord(expense.paid_by, members);
@@ -863,7 +909,7 @@
       <ul class="tip-list">
         <li>Your share is the part of each bill that belongs to you, once you accept it.</li>
         <li>Settle up when you pay or get paid, so balances go back to zero.</li>
-        <li>An admin can mark a share as accepted if someone does not respond.</li>
+        <li>Someone in the room can mark a share as accepted if a roommate does not respond.</li>
       </ul>
       <button type="button" class="secondary-btn" id="dismiss-tips">Got it</button>`;
     const btn = host.querySelector("#dismiss-tips");
@@ -900,14 +946,25 @@
     return data;
   }
 
-  function renderPendingItems(host, requests, members) {
+  function pendingWithExpense(requests, expenses) {
+    const byId = new Map((expenses || []).filter((e) => e && e.id).map((e) => [e.id, e]));
+    return (requests || []).map((r) => {
+      if (!r) return null;
+      const expense = (r.expense && r.expense.id) ? r.expense : (byId.get(r.expense_id) || null);
+      return expense ? { ...r, expense } : null;
+    }).filter(Boolean);
+  }
+
+  function renderPendingItems(host, requests, members, expenses) {
     if (!host) return;
-    if (!requests.length) {
+    const items = pendingWithExpense(requests, expenses);
+    if (!items.length) {
       host.innerHTML = `<p class="empty">No pending share requests.</p>`;
       return;
     }
-    host.innerHTML = requests.map((r) => {
+    host.innerHTML = items.map((r) => {
       const e = r.expense;
+      if (!e || !e.id) return "";
       const payer = memberRecord(e.paid_by, members);
       return `<article class="pending-card" data-expense-id="${escapeHtml(e.id)}">
         <div>
@@ -1356,6 +1413,12 @@
     try { startNotifWatch(); } catch (err) { console.warn(err); }
     paintHeaderAvatar(profile);
     if (mainEl) mainEl.classList.remove("is-loading");
+    try {
+      const wanted = localStorage.getItem("mb-push-enabled") === "1";
+      if (wanted && "Notification" in window && Notification.permission === "granted") {
+        ensurePushSubscription().catch(() => {});
+      }
+    } catch (e) { /* ignore */ }
     return {
       sb: client(),
       session,
@@ -1493,7 +1556,28 @@
     const reg = await navigator.serviceWorker.ready;
     return await reg.pushManager.getSubscription();
   }
-  async function subscribePush() {
+  function subscriptionKeys(sub) {
+    if (!sub) return null;
+    const json = typeof sub.toJSON === "function" ? sub.toJSON() : sub;
+    const keys = (json && json.keys) || {};
+    if (!json || !json.endpoint || !keys.p256dh || !keys.auth) return null;
+    return { endpoint: json.endpoint, p256dh: keys.p256dh, auth: keys.auth };
+  }
+  async function upsertCurrentSubscription(sub) {
+    const keys = subscriptionKeys(sub);
+    if (!keys) throw new Error("This device does not have a complete push subscription.");
+    const { error } = await client().rpc("upsert_push_subscription", {
+      p_endpoint: keys.endpoint,
+      p_p256dh: keys.p256dh,
+      p_auth: keys.auth,
+      p_user_agent: navigator.userAgent,
+    });
+    if (error) throw error;
+    try { localStorage.setItem("mb-push-enabled", "1"); localStorage.setItem("mb-push-banner-dismissed", "1"); } catch (e) { /* ignore */ }
+    return keys;
+  }
+  async function subscribePush(opts) {
+    const force = !!(opts && opts.force);
     if (!vapidPublicKey()) throw new Error("Push is not configured on this site yet.");
     if (!("Notification" in window) || !("PushManager" in window)) throw new Error("This browser does not support phone notifications.");
     if (isIosDevice() && !isStandaloneApp()) {
@@ -1503,22 +1587,31 @@
     if (permission !== "granted") throw new Error("Notifications are blocked. Allow them in the browser or system settings, then try again.");
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
+    if (force && sub) {
+      try { await sub.unsubscribe(); } catch (e) { /* ignore */ }
+      sub = null;
+    }
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey()),
       });
     }
-    const json = sub.toJSON();
-    const { error } = await client().rpc("upsert_push_subscription", {
-      p_endpoint: json.endpoint,
-      p_p256dh: json.keys && json.keys.p256dh,
-      p_auth: json.keys && json.keys.auth,
-      p_user_agent: navigator.userAgent,
-    });
-    if (error) throw error;
-    try { localStorage.setItem("mb-push-enabled", "1"); localStorage.setItem("mb-push-banner-dismissed", "1"); } catch (e) { /* ignore */ }
+    await upsertCurrentSubscription(sub);
     return sub;
+  }
+  async function ensurePushSubscription() {
+    if (!("Notification" in window) || Notification.permission !== "granted") {
+      return subscribePush();
+    }
+    const existing = await getPushSubscription().catch(() => null);
+    if (existing && subscriptionKeys(existing)) {
+      try {
+        await upsertCurrentSubscription(existing);
+        return existing;
+      } catch (err) { /* fall through and resubscribe */ }
+    }
+    return subscribePush({ force: true });
   }
   async function unsubscribePush() {
     const sub = await getPushSubscription();
@@ -1531,8 +1624,47 @@
     try { localStorage.removeItem("mb-push-enabled"); } catch (e) { /* ignore */ }
   }
   async function sendTestPush() {
-    const { data, error } = await client().rpc("send_test_notification");
-    if (error) throw error;
+    const sub = await ensurePushSubscription();
+    const keys = subscriptionKeys(sub);
+    let inserted = null;
+    try {
+      const rec = await client().rpc("send_test_notification");
+      if (rec.error) throw rec.error;
+      inserted = rec.data;
+    } catch (err) { /* still try the direct push so the phone can be tested */ }
+    const payload = {
+      test: true,
+      endpoint: keys && keys.endpoint,
+      record: {
+        id: inserted && inserted.id,
+        user_id: uid(),
+        type: "push_test",
+        title: "Test notification",
+        body: "If you can see this, phone notifications are working. The phone uses its default sound.",
+        link: "notifications.html",
+      },
+    };
+    let data = null, fnErr = null;
+    try {
+      const res = await client().functions.invoke("send-push", { body: payload });
+      data = res.data;
+      fnErr = res.error;
+    } catch (err) {
+      fnErr = err;
+    }
+    if (fnErr) {
+      const msg = errorMessage(fnErr);
+      const err = new Error(msg || "Could not reach the push service.");
+      err.cause = fnErr;
+      err.result = data;
+      throw err;
+    }
+    if (!data || data.ok === false || !data.sent) {
+      const detail = (data && (data.error || (data.results && data.results.map((r) => r.message || r.status).join("; ")))) || "The push service did not accept the message.";
+      const err = new Error(detail);
+      err.result = data;
+      throw err;
+    }
     return data;
   }
   function invitePageUrl(code) {
@@ -2049,6 +2181,107 @@
     });
   }
 
+
+  function decorateRequiredFields(root) {
+    const scope = root || document;
+    scope.querySelectorAll("label.field").forEach((lab) => {
+      const control = lab.querySelector("input, select, textarea");
+      const span = lab.querySelector(":scope > span");
+      if (!span) return;
+      const needed = lab.hasAttribute("data-required") || (control && control.required && !control.disabled);
+      let mark = span.querySelector(".req");
+      if (needed) {
+        if (!mark) {
+          mark = document.createElement("span");
+          mark.className = "req";
+          mark.setAttribute("aria-hidden", "true");
+          mark.textContent = "*";
+          span.appendChild(document.createTextNode(" "));
+          span.appendChild(mark);
+        }
+        mark.hidden = false;
+      } else if (mark) {
+        mark.hidden = true;
+      }
+    });
+  }
+
+  function setFieldError(el, message) {
+    if (typeof el === "string") el = $(el);
+    if (!el) return;
+    const field = el.closest ? (el.closest(".field") || el.closest("#split-box") || el.parentElement) : null;
+    let host = null;
+    if (el.classList && el.classList.contains("field-error")) host = el;
+    else if (field) {
+      host = field.querySelector(":scope > .field-error");
+      if (!host && field.id === "split-box") host = document.getElementById("split-error");
+      if (!host) {
+        host = document.createElement("p");
+        host.className = "field-error";
+        host.setAttribute("role", "alert");
+        field.appendChild(host);
+      }
+    }
+    if (field && field.classList) field.classList.toggle("is-invalid", !!message);
+    if (message) el.setAttribute("aria-invalid", "true");
+    else el.removeAttribute("aria-invalid");
+    if (host) {
+      host.hidden = !message;
+      host.textContent = message || "";
+    }
+  }
+
+  function clearFormErrors(form) {
+    if (!form) return;
+    form.querySelectorAll(".field.is-invalid, #split-box.is-invalid").forEach((f) => f.classList.remove("is-invalid"));
+    form.querySelectorAll(".field-error").forEach((p) => { p.hidden = true; p.textContent = ""; });
+    form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
+  }
+
+  function applyFormErrors(form, errors, opts) {
+    const o = opts || {};
+    clearFormErrors(form);
+    const list = (errors || []).filter((e) => e && e.message && e.el);
+    list.forEach((e) => setFieldError(e.el, e.message));
+    const first = list[0] && (typeof list[0].el === "string" ? $(list[0].el) : list[0].el);
+    if (o.focus !== false && first && typeof first.focus === "function") {
+      try {
+        first.scrollIntoView({ block: "center", behavior: "smooth" });
+        first.focus({ preventScroll: true });
+      } catch (err) {
+        try { first.focus(); } catch (e2) { /* ignore */ }
+      }
+    }
+    const btn = o.button || (form && form.querySelector('button[type="submit"]'));
+    if (btn && o.disable !== false) btn.disabled = list.length > 0;
+    return list.length === 0;
+  }
+
+  function bindFormValidation(form, collectErrors, opts) {
+    if (!form || typeof collectErrors !== "function") return () => true;
+    form.setAttribute("novalidate", "");
+    decorateRequiredFields(form);
+    const button = (opts && opts.button) || form.querySelector('button[type="submit"]');
+    let attempted = !!(opts && opts.immediate);
+    const sync = (focus) => {
+      const errors = collectErrors() || [];
+      const invalid = errors.some((e) => e && e.message);
+      if (button && (!opts || opts.disable !== false)) button.disabled = invalid;
+      if (attempted) applyFormErrors(form, errors, { button, focus: !!focus, disable: opts && opts.disable });
+      else clearFormErrors(form);
+      if (button && (!opts || opts.disable !== false)) button.disabled = invalid;
+      return !invalid;
+    };
+    form.addEventListener("input", () => sync(false));
+    form.addEventListener("change", () => sync(false));
+    form.addEventListener("submit", (ev) => {
+      attempted = true;
+      if (!sync(true)) ev.preventDefault();
+    }, true);
+    sync(false);
+    return (focus) => { attempted = true; return sync(!!focus); };
+  }
+
   window.MB = {
     CATEGORIES, PERSONAL_EXPENSE_CATS, INCOME_CATS, CAT_COLORS, CAT_COLOR_TOKENS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
     $, escapeHtml, errorMessage, formatMoney, equalSplits,
@@ -2058,14 +2291,15 @@
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
     memberBalances, settleSuggestions, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, emptyState, openActionSheet, closeActionSheet,
+    friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
-    loadPendingRequests, respondToShare, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
+    loadPendingRequests, respondToShare, pendingWithExpense, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
+    decorateRequiredFields, setFieldError, clearFormErrors, applyFormErrors, bindFormValidation,
     isAdmin, isOwner, roleLabel, roomCategories, loadUnreadCount, setNotifBadge,
     colorForCategory, monthKeysBack, shiftMonth, loadRoomExpensesRange, loadPersonalRange,
     loadRoomCategoryBudgets, maybeBrowserNotify, requestBrowserNotify,
-    isIosDevice, isStandaloneApp, subscribePush, unsubscribePush, sendTestPush, getPushSubscription,
+    isIosDevice, isStandaloneApp, subscribePush, unsubscribePush, sendTestPush, getPushSubscription, ensurePushSubscription,
     invitePageUrl, inviteShareText, whatsappShareHref, copyInviteMessage, shareInvite, safeNextPath,
     avatarHtml, paintHeaderAvatar, enhancePasswordFields, bindPasswordRules, itemizedSplits, fetchFxRate, proofThumbHtml, openProofLightbox, bindProofLightbox,
     compressImage, signedReceiptUrl, loadChartJs, whenVisible, cssToken, initials,
@@ -2075,6 +2309,6 @@
     get currency() { return currency; },
   };
 
-  document.addEventListener("DOMContentLoaded", () => { enhancePasswordFields(); enhanceDateFields(); bindProofLightbox(); });
-  if (document.readyState !== "loading") { enhancePasswordFields(); enhanceDateFields(); bindProofLightbox(); }
+  document.addEventListener("DOMContentLoaded", () => { enhancePasswordFields(); enhanceDateFields(); bindProofLightbox(); bindInfoTips(); decorateRequiredFields(); });
+  if (document.readyState !== "loading") { enhancePasswordFields(); enhanceDateFields(); bindProofLightbox(); bindInfoTips(); decorateRequiredFields(); }
 })();

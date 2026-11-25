@@ -95,16 +95,35 @@
       });
     }
 
+    function collectPayErrors() {
+      const fromEl = $("pay-from");
+      const toEl = $("pay-to");
+      const amountEl = $("pay-amount");
+      const dateEl = $("pay-date");
+      const errors = [];
+      if (!fromEl || !fromEl.value) errors.push({ el: fromEl, message: "Choose who is paying." });
+      if (!toEl || !toEl.value) errors.push({ el: toEl, message: "Choose who is receiving." });
+      if (fromEl && toEl && fromEl.value && toEl.value && fromEl.value === toEl.value) {
+        errors.push({ el: toEl, message: "Choose two different people." });
+      }
+      const amount = Number(amountEl && amountEl.value);
+      if (!amount || amount <= 0) errors.push({ el: amountEl, message: "Enter an amount greater than zero." });
+      if (!dateEl || !dateEl.value) errors.push({ el: dateEl, message: "Pick a date." });
+      return errors;
+    }
+    const validatePay = MB.bindFormValidation
+      ? MB.bindFormValidation($("pay-form"), collectPayErrors, { button: $("pay-save") })
+      : () => true;
+
     $("pay-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       hideError("pay-error");
+      if (!validatePay(true)) return;
       const from = $("pay-from").value;
       const to = $("pay-to").value;
       const amount = Number($("pay-amount").value);
       const date = $("pay-date").value;
       const note = $("pay-note").value.trim();
-      if (from === to) return showError("pay-error", "Choose two different people.");
-      if (!amount || amount <= 0) return showError("pay-error", "Enter an amount greater than zero.");
       let proofPath = null;
       try {
         if (proofBlob) {

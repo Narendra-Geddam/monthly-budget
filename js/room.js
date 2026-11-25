@@ -12,7 +12,7 @@
       const members = await MB.loadMembers(ctx.room.id);
       $("member-list").innerHTML = members.map((m) => `<div class="list-item">
         <div><div class="item-title">${MB.personChip(m, members, "md")}${m.id === ctx.uid ? " (you)" : ""}</div>
-        <div class="item-sub">${escapeHtml(MB.roleLabel(m.role))}</div></div>
+        <div class="item-sub">${m.role === "owner" ? escapeHtml(MB.roleLabel(m.role)) : ""}</div></div>
       </div>`).join("");
       $("copy-code").addEventListener("click", async () => {
         try {

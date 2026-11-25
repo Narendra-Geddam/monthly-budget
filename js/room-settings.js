@@ -192,8 +192,29 @@
     }
     await loadRecurring();
 
+    function collectRecErrors() {
+      const desc = $("rec-desc");
+      const amount = $("rec-amount");
+      const cat = $("rec-category");
+      const paid = $("rec-paid-by");
+      const day = $("rec-day");
+      const errors = [];
+      if (!desc || !desc.value.trim()) errors.push({ el: desc, message: "Add a short description." });
+      if (!amount || !Number(amount.value) || Number(amount.value) <= 0) {
+        errors.push({ el: amount, message: "Enter an amount greater than zero." });
+      }
+      if (!cat || !cat.value) errors.push({ el: cat, message: "Choose a category." });
+      if (!paid || !paid.value) errors.push({ el: paid, message: "Choose who paid." });
+      const d = Number(day && day.value);
+      if (!d || d < 1 || d > 28) errors.push({ el: day, message: "Pick a day from 1 to 28." });
+      return errors;
+    }
+    const validateRec = MB.bindFormValidation
+      ? MB.bindFormValidation($("recurring-form"), collectRecErrors, { button: $("rec-save") })
+      : () => true;
     $("recurring-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!validateRec(true)) return;
       const { error } = await MB.client().rpc("upsert_recurring", {
         p_room_id: room.id,
         p_id: null,
@@ -215,6 +236,7 @@
       const { expenses, splits, settlements } = await MB.loadMonthData(room.id, ctx.month);
       const lines = ["type,date,description,category,person,amount,status"];
       expenses.forEach((e) => {
+        if (!e) return;
         lines.push(["expense", e.date, e.description, e.category, MB.displayName(e.paid_by, members), e.amount, "paid"].map(csvEscape).join(","));
         splits.filter((s) => s.expense_id === e.id).forEach((s) => {
           lines.push(["share", e.date, e.description, e.category, MB.displayName(s.user_id, members), s.share_amount, s.status].map(csvEscape).join(","));

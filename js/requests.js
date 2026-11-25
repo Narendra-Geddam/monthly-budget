@@ -10,7 +10,8 @@
       return;
     }
     const members = await MB.loadMembers(ctx.room.id);
-    MB.renderPendingItems($("pending-list"), ctx.pending || [], members);
+    const expenses = ctx.expenses || [];
+    MB.renderPendingItems($("pending-list"), ctx.pending || [], members, expenses);
   }
   main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
 })();

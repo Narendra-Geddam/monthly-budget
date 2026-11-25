@@ -79,7 +79,7 @@
       const { data, error } = await MB.client().rpc("join_room", { p_code: $("join-code").value });
       if (error) return MB.showError("room-error", MB.errorMessage(error));
       if (data.status === "pending") {
-        return MB.showError("room-error", "Your request to join " + (data.name || "this room") + " is waiting for admin approval.");
+        return MB.showError("room-error", "Your request to join " + (data.name || "this room") + " is waiting for approval.");
       }
       MB.setActiveRoomId(data.id);
       location.reload();
@@ -88,7 +88,7 @@
     const pendingJoin = (() => { try { return JSON.parse(sessionStorage.getItem("monthly-budget-join-pending") || "null"); } catch (e) { return null; } })();
     if (pendingJoin && pendingJoin.status === "pending") {
       const err = document.getElementById("room-error");
-      if (err) { err.hidden = false; err.textContent = "Your request to join " + (pendingJoin.name || "the room") + " is waiting for admin approval."; }
+      if (err) { err.hidden = false; err.textContent = "Your request to join " + (pendingJoin.name || "the room") + " is waiting for approval."; }
     }
   }
 
@@ -282,8 +282,8 @@
       heroEl.className = "card hero-status " + hero.cls;
       if (hero.counterpart) {
         const chip = MB.personChip(MB.memberRecord(hero.counterpart.id, members), members, "lg");
-        if (hero.direction === "owed") heroLine.innerHTML = chip + " owes you " + MB.escapeHtml(MB.formatMoney(hero.amount));
-        else if (hero.direction === "owe") heroLine.innerHTML = "You owe " + chip + " " + MB.escapeHtml(MB.formatMoney(hero.amount));
+        if (hero.direction === "owed") heroLine.innerHTML = chip + ' <span class="hero-rest">owes you ' + MB.escapeHtml(MB.formatMoney(hero.amount)) + "</span>";
+        else if (hero.direction === "owe") heroLine.innerHTML = 'You owe ' + chip + ' <span class="hero-rest">' + MB.escapeHtml(MB.formatMoney(hero.amount)) + "</span>";
         else heroLine.textContent = hero.text;
       } else {
         heroLine.textContent = hero.text;
@@ -292,7 +292,7 @@
       if (sub) {
         sub.innerHTML = hero.direction === "settled"
           ? "No one in this room owes anyone for this month."
-          : 'Based on accepted shares <span class="nowrap">this month. ' + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.") + "</span>";
+          : 'Based on accepted shares this month. ' + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.");
       }
       const heroNote = $("hero-note");
       if (heroNote) {
@@ -338,9 +338,12 @@
     const dashNote = $("stat-net-note");
     if (dashNote) { dashNote.hidden = true; dashNote.textContent = ""; }
 
-    if (ctx.pending && ctx.pending.length) {
+    const pendingItems = typeof MB.pendingWithExpense === "function"
+      ? MB.pendingWithExpense(ctx.pending, expenses)
+      : (ctx.pending || []).filter((r) => r && r.expense);
+    if (pendingItems.length) {
       $("pending-section").hidden = false;
-      MB.renderPendingItems($("pending-list"), ctx.pending, members);
+      MB.renderPendingItems($("pending-list"), pendingItems, members, expenses);
     }
 
     const myAccepted = (splits || []).filter((s) => s.user_id === ctx.uid && s.status === "accepted");
@@ -350,13 +353,13 @@
       return MB.expenseRowHtml(e, { members, splits: [s] });
     }).join("") : MB.emptyState({ art: "images/illu-handshake.webp", title: "No accepted shares yet", text: "When you accept your part of a bill, it will show up here.", href: "add-expense.html", cta: "Add an expense" });
 
-    const recent = expenses.slice(0, 6);
+    const recent = (expenses || []).filter((e) => e && e.id).slice(0, 6);
     $("recent-list").innerHTML = recent.length
       ? recent.map((e) => MB.expenseRowHtml(e, { members, splits })).join("")
       : MB.emptyState({ art: "images/illu-receipts.webp", title: "No expenses this month", text: "Add rent, groceries, or a dinner to start tracking together.", href: "add-expense.html", cta: "Add an expense" });
 
     const spent = {};
-    expenses.forEach((e) => { spent[e.category] = (spent[e.category] || 0) + Number(e.amount); });
+    (expenses || []).forEach((e) => { if (!e) return; spent[e.category] = (spent[e.category] || 0) + Number(e.amount); });
     const afterCharts = async () => {
       try {
         await MB.loadChartJs();

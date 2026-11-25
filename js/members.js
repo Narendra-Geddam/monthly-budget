@@ -45,7 +45,7 @@
     const byId = Object.fromEntries(members.map((m) => [m.id, m]));
 
     async function setRole(userId, role) {
-      const msg = role === "owner" ? "Transfer ownership to this person? You will become an admin." : "Change this member's role?";
+      const msg = role === "owner" ? "Transfer ownership to this person? You will still be able to help manage the room." : (role === "admin" ? "Let this person help manage the room?" : "Stop this person from managing the room?");
       if (!confirm(msg)) return;
       const { error } = await MB.client().rpc("set_member_role", { p_room_id: ctx.room.id, p_user_id: userId, p_role: role });
       if (error) return MB.showPageError(errorMessage(error));
@@ -65,7 +65,7 @@
       const person = Object.assign({ id: b.id, display_name: b.name, avatar_url: m.avatar_url || b.avatar_url }, m);
       const chips = [
         b.id === ctx.uid ? `<span class="role-badge">You</span>` : "",
-        (m.role === "owner" || m.role === "admin") ? `<span class="role-badge">${escapeHtml(MB.roleLabel(m.role))}</span>` : "",
+        m.role === "owner" ? `<span class="role-badge">${escapeHtml(MB.roleLabel(m.role))}</span>` : "",
       ].filter(Boolean).join("");
       const kebab = canAct || canOwnTools ? `<button type="button" class="kebab-btn" data-member-menu="${escapeHtml(b.id)}" aria-haspopup="dialog" aria-label="Actions for ${escapeHtml(b.name)}">${MB.ICONS && MB.ICONS.kebab ? MB.ICONS.kebab : "⋯"}</button>` : "";
       return `<div class="member-row">
@@ -93,8 +93,8 @@
         const name = (m.display_name || m.name || "Member");
         const items = [];
         if (ctx.isOwner && m.role !== "owner") {
-          if (m.role === "admin") items.push({ label: "Demote", onSelect: () => setRole(id, "member") });
-          else items.push({ label: "Make admin", onSelect: () => setRole(id, "admin") });
+          if (m.role === "admin") items.push({ label: "Stop managing room", onSelect: () => setRole(id, "member") });
+          else items.push({ label: "Allow managing room", onSelect: () => setRole(id, "admin") });
           items.push({ label: "Transfer ownership", onSelect: () => setRole(id, "owner") });
         }
         if (ctx.isAdmin && m.role !== "owner") {

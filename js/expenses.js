@@ -26,6 +26,7 @@
       const to = $("filter-to").value;
       const rows = expenses.filter((e) => {
         if (cat && e.category !== cat) return false;
+        if (!e) return false;
         if (payer && e.paid_by !== payer) return false;
         if (from && e.date < from) return false;
         if (to && e.date > to) return false;

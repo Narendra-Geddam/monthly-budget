@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Profile · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=25" />
+  <link rel="manifest" href="manifest.json?v=26" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -78,7 +78,7 @@
         <span class="chevron">›</span>
       </button>
       <div class="profile-panel" id="panel-details" hidden>
-        <form id="profile-form">
+        <form id="profile-form" novalidate>
           <label class="field"><span>Display name</span><input type="text" id="profile-name" maxlength="40" required /></label>
           <label class="field"><span>Phone (optional)</span><input type="tel" id="profile-phone" maxlength="20" autocomplete="tel" placeholder="+91…" /></label>
           <label class="field"><span>UPI ID (optional)</span><input type="text" id="profile-upi" maxlength="80" placeholder="name@upi" /></label>
@@ -86,7 +86,7 @@
           <label class="field"><span>Currency</span><select id="profile-currency" class="select"></select></label>
           <p class="form-error" id="profile-error" hidden></p>
           <p class="form-ok" id="profile-ok" hidden></p>
-          <button type="submit" class="primary-btn">Save</button>
+          <button type="submit" class="primary-btn" id="profile-save">Save</button>
         </form>
       </div>
       <button type="button" class="profile-row" data-panel="security">
@@ -117,7 +117,7 @@
         <div class="btn-row" style="margin-top:16px">
           <button type="button" class="primary-btn" id="push-enable">Enable notifications</button>
           <button type="button" class="secondary-btn" id="push-disable" hidden>Disable</button>
-          <button type="button" class="secondary-btn" id="push-test" hidden>Send test</button>
+          <button type="button" class="secondary-btn" id="push-test">Send test notification</button>
         </div>
         <p class="form-error" id="push-error" hidden></p>
         <p class="form-ok" id="push-ok" hidden></p>

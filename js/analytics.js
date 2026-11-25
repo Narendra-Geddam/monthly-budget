@@ -169,7 +169,7 @@
     if (panel) panel.hidden = false;
     const monthRows = expenses.filter((e) => String(e.date).slice(0, 7) === selected);
     const labels = members.map((m) => m.display_name);
-    const data = members.map((m) => monthRows.filter((e) => e.paid_by === m.id).reduce((s, e) => s + Number(e.amount), 0));
+    const data = members.map((m) => monthRows.filter((e) => e && e.paid_by === m.id).reduce((s, e) => s + Number(e.amount), 0));
     makeChart("chart-members", {
       type: "bar",
       data: { labels, datasets: [{ label: "Paid", data, backgroundColor: "#a371f7", borderRadius: 6, maxBarThickness: 40 }] },

@@ -119,14 +119,23 @@
         if (localUrl) URL.revokeObjectURL(localUrl);
       }
     });
+    function collectProfileErrors() {
+      const nameEl = $("profile-name");
+      const errors = [];
+      if (!nameEl || !nameEl.value.trim()) errors.push({ el: nameEl, message: "Enter a display name." });
+      return errors;
+    }
+    const validateProfile = MB.bindFormValidation
+      ? MB.bindFormValidation($("profile-form"), collectProfileErrors, { button: $("profile-save") })
+      : () => true;
     $("profile-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       hideError("profile-error");
+      if (!validateProfile(true)) return;
       const name = $("profile-name").value.trim();
       const currency = $("profile-currency").value;
       const phone = $("profile-phone").value.trim();
       const upi = $("profile-upi").value.trim();
-      if (!name) return showError("profile-error", "Enter a display name.");
       const { data, error } = await MB.client().rpc("update_my_profile", {
         p_patch: { display_name: name, currency, phone, upi_id: upi },
       });
@@ -196,22 +205,21 @@
       }
       const permission = Notification.permission;
       const sub = await MB.getPushSubscription().catch(() => null);
-      if (permission === "granted" && sub) {
+      const ready = permission === "granted" && sub;
+      if (ready) {
         status.textContent = "Phone notifications are on. New alerts will appear in the notification bar with the default sound.";
         enable.hidden = true;
         disable.hidden = false;
-        test.hidden = false;
       } else if (permission === "denied") {
         status.textContent = "Notifications are blocked. Allow them in your browser or system settings, then come back here.";
         enable.hidden = false;
         disable.hidden = true;
-        test.hidden = true;
       } else {
         status.textContent = "Phone notifications are off. Enable them to get alerts even when this tab is closed.";
         enable.hidden = false;
         disable.hidden = true;
-        test.hidden = true;
       }
+      test.hidden = false;
     }
     enable.addEventListener("click", async () => {
       hideError("push-error");
@@ -240,12 +248,19 @@
     test.addEventListener("click", async () => {
       hideError("push-error");
       $("push-ok").hidden = true;
+      test.disabled = true;
       try {
-        await MB.sendTestPush();
+        const result = await MB.sendTestPush();
         $("push-ok").hidden = false;
-        $("push-ok").textContent = "Test sent. Check your notification bar — and the in-app list.";
+        const n = result && result.sent;
+        $("push-ok").textContent = n
+          ? ("Test sent to this device (" + n + "). Check your notification bar — and the in-app list.")
+          : "Test sent. Check your notification bar — and the in-app list.";
+        await refresh();
       } catch (err) {
         showError("push-error", errorMessage(err));
+      } finally {
+        test.disabled = false;
       }
     });
     await refresh();
