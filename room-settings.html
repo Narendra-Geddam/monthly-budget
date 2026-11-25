@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Room settings · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=26" />
+  <link rel="manifest" href="manifest.json?v=27" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -32,10 +32,10 @@
 <body>
   <header id="topbar" class="topbar"></header>
   <main class="page" id="main">
-    <p class="empty" id="no-access" hidden>Only owners and admins can change room settings. <a href="room.html">Back to room</a></p>
+    <p class="empty" id="no-access" hidden>Only people who can manage the room can change these settings. <a href="room.html">Back to room</a></p>
     <form id="settings-form" class="card" hidden>
       <h2>Room settings</h2>
-      <p class="card-sub">These apply to everyone in the room. Only admins can edit them.</p>
+      <p class="card-sub">These apply to everyone in the room. Only people who can manage the room can edit them.</p>
       <label class="field"><span>Room name</span><input type="text" id="set-name" maxlength="80" required /></label>
       <label class="field"><span>Description or address</span><textarea id="set-desc" rows="3" maxlength="400" placeholder="Flat 4B, 3rd floor, near the park"></textarea></label>
       <label class="field"><span>Currency</span><select id="set-currency" class="select"></select></label>
@@ -59,7 +59,7 @@
       </label>
       <label class="field"><span>Expense categories</span><textarea id="set-cats" rows="3" placeholder="One category per line"></textarea></label>
       <label class="check-row"><input type="checkbox" id="set-members-add" checked /><span>Members may add expenses</span></label>
-      <label class="check-row"><input type="checkbox" id="set-approve" checked /><span>Require admin approval for new joins</span></label>
+      <label class="check-row"><input type="checkbox" id="set-approve" checked /><span>Require approval for new joins</span></label>
       <p class="form-error" id="set-error" hidden></p>
       <p class="form-ok" id="set-ok" hidden></p>
       <button type="submit" class="primary-btn">Save settings</button>

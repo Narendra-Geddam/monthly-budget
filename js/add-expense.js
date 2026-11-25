@@ -114,7 +114,10 @@
   function fillPersonalCategories() {
     const typ = $("per-type").value;
     const list = typ === "income" ? INCOME_CATS : PERSONAL_EXPENSE_CATS;
-    $("exp-category").innerHTML = list.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    const catEl = $("exp-category");
+    if (MB.fillCategorySelect) MB.fillCategorySelect(catEl, list, catEl && catEl.value);
+    else catEl.innerHTML = list.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if (MB.bindCategoryPicker) MB.bindCategoryPicker(catEl);
   }
 
   function setKind(next, ctx) {
@@ -126,7 +129,10 @@
     if (paid) paid.required = next === "room";
     if (next === "personal") fillPersonalCategories();
     else if (ctx && ctx.room) {
-      $("exp-category").innerHTML = MB.roomCategories(ctx.room).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      const catEl = $("exp-category");
+      if (MB.fillCategorySelect) MB.fillCategorySelect(catEl, (MB.pickerCategories || MB.roomCategories)(ctx.room), catEl && catEl.value);
+      else catEl.innerHTML = MB.roomCategories(ctx.room).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      if (MB.bindCategoryPicker) MB.bindCategoryPicker(catEl);
     }
     if (MB.decorateRequiredFields) MB.decorateRequiredFields($("expense-form"));
     if (typeof validateExpense === "function") validateExpense(false);
@@ -677,7 +683,9 @@
       $("no-room").innerHTML = "Only people who can manage the room can add expenses here. <a href=\"dashboard.html\">Go to dashboard</a>";
       return;
     }
-    $("exp-category").innerHTML = MB.roomCategories(ctx.room).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if (MB.fillCategorySelect) MB.fillCategorySelect($("exp-category"), (MB.pickerCategories || MB.roomCategories)(ctx.room), $("exp-category").value);
+    else $("exp-category").innerHTML = MB.roomCategories(ctx.room).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if (MB.bindCategoryPicker) MB.bindCategoryPicker($("exp-category"));
     $("exp-paid-by").innerHTML = members.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.display_name)}${m.id === ctx.uid ? " (you)" : ""}</option>`).join("");
     $("exp-paid-by").value = ctx.uid;
     $("exp-date").value = MB.todayISO();
@@ -699,6 +707,7 @@
       $("per-type").value = row.type;
       fillPersonalCategories();
       $("exp-category").value = row.category;
+      if (MB.syncCategoryPicker) MB.syncCategoryPicker($("exp-category"));
       $("exp-date").value = row.date;
       $("exp-delete").hidden = false;
       $("kind-toggle").querySelector('[data-kind="room"]').disabled = true;
@@ -710,6 +719,7 @@
       $("exp-amount").value = String(exp.amount);
       $("exp-desc").value = exp.description;
       $("exp-category").value = exp.category;
+      if (MB.syncCategoryPicker) MB.syncCategoryPicker($("exp-category"));
       $("exp-date").value = exp.date;
       $("exp-paid-by").value = exp.paid_by;
       const involved = new Set((splits || []).map((s) => s.user_id));

@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=26";
+  const MANIFEST_HREF = "manifest.json?v=27";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -117,8 +117,34 @@
   const MONTH_KEY = "monthly-budget-month";
   const PENDING_CODE_KEY = "monthly-budget-pending-code";
 
-  const CATEGORIES = ["Rent", "Groceries", "Electricity", "Water", "Internet", "Gas", "Food/Outing", "Maid", "Other"];
-  const PERSONAL_EXPENSE_CATS = ["Groceries", "Food/Outing", "Transport", "Shopping", "Health", "Entertainment", "Subscriptions", "Rent", "Electricity", "Water", "Internet", "Gas", "Maid", "Other"];
+  function uniqueCats(list) {
+    const seen = new Set();
+    const out = [];
+    (list || []).forEach((c) => {
+      const name = String(c || "").trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      out.push(name);
+    });
+    return out;
+  }
+  const CATEGORIES = [
+    "Rent", "Groceries", "Electricity", "Water", "WiFi / Internet", "Gas", "Gas cylinder",
+    "Food/Outing", "Eating out", "Food delivery (Swiggy/Zomato)", "Snacks & tea",
+    "Movies & outings", "Alcohol & drinks", "Cigarettes/Smoke",
+    "Travel/Fuel", "Mobile & internet recharge", "Gym & fitness",
+    "Laundry", "Maid", "Maid/Cook", "Gifts & parties", "Medical",
+    "Shopping/Clothes", "Subscriptions (OTT)", "Other"
+  ];
+  const PERSONAL_EXPENSE_CATS = uniqueCats([
+    "Groceries", "Food/Outing", "Eating out", "Food delivery (Swiggy/Zomato)", "Snacks & tea",
+    "Transport", "Travel/Fuel", "Shopping", "Shopping/Clothes", "Health", "Medical",
+    "Entertainment", "Movies & outings", "Subscriptions", "Subscriptions (OTT)",
+    "Rent", "Electricity", "Water", "Internet", "WiFi / Internet",
+    "Mobile & internet recharge", "Gas", "Gas cylinder",
+    "Gym & fitness", "Alcohol & drinks", "Cigarettes/Smoke",
+    "Laundry", "Maid", "Maid/Cook", "Gifts & parties", "Other"
+  ]);
   const INCOME_CATS = ["Salary", "Freelance", "Refund", "Gift", "Interest", "Other"];
   const CAT_COLOR_TOKENS = {
     Rent: "--cat-indigo",
@@ -126,9 +152,31 @@
     Electricity: "--cat-amber",
     Water: "--cat-sky",
     Internet: "--cat-teal",
+    "WiFi / Internet": "--cat-teal",
     Gas: "--cat-violet",
+    "Gas cylinder": "--cat-violet",
     "Food/Outing": "--cat-rose",
+    "Eating out": "--cat-coral",
+    "Food delivery (Swiggy/Zomato)": "--cat-orange",
+    "Snacks & tea": "--cat-amber",
+    "Movies & outings": "--cat-pink",
+    "Alcohol & drinks": "--cat-wine",
+    "Cigarettes/Smoke": "--cat-slate",
+    "Travel/Fuel": "--cat-indigo",
+    Transport: "--cat-indigo",
+    "Mobile & internet recharge": "--cat-cyan",
+    "Gym & fitness": "--cat-orange",
+    Laundry: "--cat-sky",
     Maid: "--cat-mint",
+    "Maid/Cook": "--cat-mint",
+    "Gifts & parties": "--cat-pink",
+    Medical: "--cat-rose",
+    Health: "--cat-rose",
+    "Shopping/Clothes": "--cat-violet",
+    Shopping: "--cat-violet",
+    "Subscriptions (OTT)": "--cat-indigo",
+    Subscriptions: "--cat-indigo",
+    Entertainment: "--cat-pink",
     Other: "--cat-slate",
   };
   const CAT_COLORS = {
@@ -137,9 +185,31 @@
     Electricity: "#FBBF24",
     Water: "#38BDF8",
     Internet: "#2EC4A3",
+    "WiFi / Internet": "#2EC4A3",
     Gas: "#C084FC",
+    "Gas cylinder": "#A78BFA",
     "Food/Outing": "#FB7185",
+    "Eating out": "#FB7185",
+    "Food delivery (Swiggy/Zomato)": "#FB923C",
+    "Snacks & tea": "#FBBF24",
+    "Movies & outings": "#F472B6",
+    "Alcohol & drinks": "#E11D48",
+    "Cigarettes/Smoke": "#94A3B8",
+    "Travel/Fuel": "#818CF8",
+    Transport: "#818CF8",
+    "Mobile & internet recharge": "#22D3EE",
+    "Gym & fitness": "#FB923C",
+    Laundry: "#38BDF8",
     Maid: "#6EE7B7",
+    "Maid/Cook": "#34D399",
+    "Gifts & parties": "#F472B6",
+    Medical: "#FB7185",
+    Health: "#FB7185",
+    "Shopping/Clothes": "#C084FC",
+    Shopping: "#C084FC",
+    "Subscriptions (OTT)": "#818CF8",
+    Subscriptions: "#818CF8",
+    Entertainment: "#F472B6",
     Other: "#94A3B8",
   };
   const CAT_ICONS = {
@@ -147,10 +217,32 @@
     Groceries: "🛒",
     Electricity: "💡",
     Water: "🚿",
-    Internet: "📶",
+    Internet: "🛜",
+    "WiFi / Internet": "🛜",
     Gas: "🔥",
+    "Gas cylinder": "🛢️",
     "Food/Outing": "🍽️",
+    "Eating out": "🍴",
+    "Food delivery (Swiggy/Zomato)": "🛵",
+    "Snacks & tea": "☕",
+    "Movies & outings": "🎬",
+    "Alcohol & drinks": "🍺",
+    "Cigarettes/Smoke": "🚬",
+    "Travel/Fuel": "⛽",
+    Transport: "🚌",
+    "Mobile & internet recharge": "📱",
+    "Gym & fitness": "🏋️",
+    Laundry: "👕",
     Maid: "🧹",
+    "Maid/Cook": "🍳",
+    "Gifts & parties": "🎁",
+    Medical: "🩺",
+    Health: "🩺",
+    "Shopping/Clothes": "👗",
+    Shopping: "🛍️",
+    "Subscriptions (OTT)": "📺",
+    Subscriptions: "📺",
+    Entertainment: "🎭",
     Other: "📦",
   };
   const CURRENCIES = [
@@ -245,13 +337,30 @@
   function escapeHtml(value) {
     return String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
+  function withoutAdminLabel(text) {
+    if (text == null || text === "") return text;
+    let s = String(text);
+    s = s.replace(/\bAn admin accepted a share on your behalf\b/gi, "A roommate accepted a share on your behalf");
+    s = s.replace(/\bAdmin marked\b/g, "A roommate marked");
+    s = s.replace(/\bOnly owners and admins\b/gi, "Only people who can manage the room");
+    s = s.replace(/\bOnly admins\b/gi, "Only people who can manage the room");
+    s = s.replace(/\ban admin\b/gi, "a roommate");
+    s = s.replace(/\bAn admin\b/g, "A roommate");
+    s = s.replace(/\badmins\b/gi, "people who can manage the room");
+    s = s.replace(/\badmin approval\b/gi, "approval");
+    s = s.replace(/\band admin actions\b/gi, "and room changes");
+    s = s.replace(/\badmin actions\b/gi, "room changes");
+    s = s.replace(/\bforce-accepted\b/gi, "accepted");
+    s = s.replace(/\bAdmin\b/g, "Roommate");
+    s = s.replace(/[ \t]{2,}/g, " ");
+    return s;
+  }
   function errorMessage(err) {
     if (!err) return "Something went wrong.";
     let text = (err.message || err.error_description || String(err));
     text = text
       .replace(/^.*?(Not authenticated|You are not a member of this room|Payer must be a room member|All participants must be room members|Splits must add up to the expense amount|At least one split is required|Only the person who added this expense can edit it|Expense not found|Enter a valid 6-character join code|No room found for that code|Room name is required)/i, "$1");
-    text = text.replace(/\ban admin\b/gi, "a roommate").replace(/\bAn admin\b/g, "A roommate");
-    return text;
+    return withoutAdminLabel(text);
   }
   function currentTheme() {
     return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
@@ -668,8 +777,13 @@
     return "Member";
   }
   function roomCategories(room) {
-    if (room && Array.isArray(room.categories) && room.categories.length) return room.categories;
+    if (room && Array.isArray(room.categories) && room.categories.length) {
+      return uniqueCats(room.categories);
+    }
     return CATEGORIES.slice();
+  }
+  function pickerCategories(room) {
+    return uniqueCats(roomCategories(room).concat(CATEGORIES));
   }
 
   async function loadUnreadCount() {
@@ -1224,6 +1338,126 @@
       closeActionSheet();
     }
   }
+
+  function fillCategorySelect(selectEl, list, selected) {
+    if (!selectEl) return;
+    const opts = uniqueCats(list || []);
+    if (selected && !opts.includes(selected)) opts.push(selected);
+    selectEl.innerHTML = opts.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if (selected) selectEl.value = selected;
+    else if (opts.length && !selectEl.value) selectEl.value = opts[0];
+    syncCategoryPicker(selectEl);
+  }
+  function syncCategoryPicker(selectEl) {
+    if (!selectEl) return;
+    const field = selectEl.closest ? selectEl.closest(".field") : selectEl.parentElement;
+    const btn = field && field.querySelector(".cat-picker-btn");
+    if (!btn) return;
+    const val = selectEl.value || "";
+    const ico = btn.querySelector(".cat-picker-ico");
+    const label = btn.querySelector(".cat-picker-label");
+    if (ico) ico.textContent = val ? categoryIcon(val) : "";
+    if (label) label.textContent = val || "Choose a category";
+    btn.classList.toggle("is-empty", !val);
+    if (val) btn.style.setProperty("--cat", colorForCategory(val));
+    else btn.style.removeProperty("--cat");
+  }
+  function openCategoryPicker(opts) {
+    opts = opts || {};
+    closeActionSheet();
+    const cats = uniqueCats(opts.categories || []);
+    const selected = opts.value || "";
+    const back = document.createElement("div");
+    back.className = "sheet-backdrop";
+    back.id = "action-sheet";
+    back.innerHTML = `<div class="sheet action-sheet cat-sheet" role="dialog" aria-modal="true" aria-labelledby="action-sheet-title">
+      <header class="sheet-head">
+        <p class="sheet-title" id="action-sheet-title">${escapeHtml(opts.title || "Category")}</p>
+        <button type="button" class="sheet-close" id="action-sheet-close" aria-label="Close">${ICONS.close}</button>
+      </header>
+      <div class="sheet-body">
+        <label class="field cat-sheet-search-field">
+          <span class="sr-only">Search categories</span>
+          <input type="search" id="cat-sheet-search" class="search-box" placeholder="Search categories" autocomplete="off" />
+        </label>
+        <div class="cat-grid" id="cat-sheet-grid"></div>
+      </div>
+    </div>`;
+    const finish = () => closeActionSheet();
+    back.addEventListener("click", (e) => { if (e.target === back) finish(); });
+    document.body.appendChild(back);
+    const closeBtn = $("action-sheet-close");
+    if (closeBtn) closeBtn.addEventListener("click", finish);
+    const grid = $("cat-sheet-grid");
+    const search = $("cat-sheet-search");
+    const paint = () => {
+      const q = ((search && search.value) || "").trim().toLowerCase();
+      const filtered = cats.filter((c) => !q || c.toLowerCase().includes(q));
+      if (!filtered.length) {
+        grid.innerHTML = `<p class="cat-grid-empty">No categories match.</p>`;
+        return;
+      }
+      grid.innerHTML = filtered.map((c) => {
+        const on = c === selected ? " is-selected" : "";
+        return `<button type="button" class="cat-grid-item${on}" data-cat="${escapeHtml(c)}" style="--cat:${escapeHtml(colorForCategory(c))}">
+          <span class="cat-ico" aria-hidden="true">${categoryIcon(c)}</span>
+          <span class="cat-grid-name">${escapeHtml(c)}</span>
+        </button>`;
+      }).join("");
+      grid.querySelectorAll("[data-cat]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const name = btn.getAttribute("data-cat");
+          finish();
+          if (typeof opts.onSelect === "function") opts.onSelect(name);
+        });
+      });
+    };
+    if (search) {
+      search.addEventListener("input", paint);
+      try { search.focus(); } catch (err) { /* ignore */ }
+    }
+    paint();
+    window.addEventListener("keydown", onActionSheetKeydown);
+    return back;
+  }
+  function bindCategoryPicker(selectEl) {
+    if (!selectEl || selectEl.dataset.catPicker === "1") return;
+    selectEl.dataset.catPicker = "1";
+    selectEl.classList.add("cat-select-hidden");
+    const field = selectEl.closest ? (selectEl.closest(".field") || selectEl.parentElement) : selectEl.parentElement;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cat-picker-btn";
+    btn.setAttribute("aria-haspopup", "dialog");
+    btn.innerHTML = `<span class="cat-picker-ico cat-ico" aria-hidden="true"></span><span class="cat-picker-label"></span><span class="cat-picker-chevron" aria-hidden="true">${ICONS.chevron}</span>`;
+    selectEl.insertAdjacentElement("afterend", btn);
+    btn.addEventListener("click", () => {
+      openCategoryPicker({
+        title: "Category",
+        categories: [...selectEl.options].map((o) => o.value).filter(Boolean),
+        value: selectEl.value,
+        onSelect: (name) => {
+          if (![...selectEl.options].some((o) => o.value === name)) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            selectEl.appendChild(opt);
+          }
+          selectEl.value = name;
+          selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+          selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+          syncCategoryPicker(selectEl);
+        }
+      });
+    });
+    selectEl.addEventListener("change", () => syncCategoryPicker(selectEl));
+    try {
+      const mo = new MutationObserver(() => syncCategoryPicker(selectEl));
+      mo.observe(selectEl, { childList: true, subtree: true });
+    } catch (err) { /* ignore */ }
+    syncCategoryPicker(selectEl);
+  }
+
   function openActionSheet(opts) {
     opts = opts || {};
     closeActionSheet();
@@ -2243,7 +2477,11 @@
     clearFormErrors(form);
     const list = (errors || []).filter((e) => e && e.message && e.el);
     list.forEach((e) => setFieldError(e.el, e.message));
-    const first = list[0] && (typeof list[0].el === "string" ? $(list[0].el) : list[0].el);
+    let first = list[0] && (typeof list[0].el === "string" ? $(list[0].el) : list[0].el);
+    if (first && first.classList && first.classList.contains("cat-select-hidden")) {
+      const btn = first.parentElement && first.parentElement.querySelector(".cat-picker-btn");
+      if (btn) first = btn;
+    }
     if (o.focus !== false && first && typeof first.focus === "function") {
       try {
         first.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -2296,7 +2534,8 @@
     renderOnboardingTip,
     loadPendingRequests, respondToShare, pendingWithExpense, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
     decorateRequiredFields, setFieldError, clearFormErrors, applyFormErrors, bindFormValidation,
-    isAdmin, isOwner, roleLabel, roomCategories, loadUnreadCount, setNotifBadge,
+    isAdmin, isOwner, roleLabel, roomCategories, pickerCategories, loadUnreadCount, setNotifBadge,
+    withoutAdminLabel, fillCategorySelect, bindCategoryPicker, syncCategoryPicker, openCategoryPicker,
     colorForCategory, monthKeysBack, shiftMonth, loadRoomExpensesRange, loadPersonalRange,
     loadRoomCategoryBudgets, maybeBrowserNotify, requestBrowserNotify,
     isIosDevice, isStandaloneApp, subscribePush, unsubscribePush, sendTestPush, getPushSubscription, ensurePushSubscription,

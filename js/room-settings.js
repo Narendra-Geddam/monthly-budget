@@ -155,8 +155,10 @@
       syncShareLinks(data);
     });
 
-    const cats = MB.roomCategories(room);
-    $("rec-category").innerHTML = cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    const cats = (MB.pickerCategories || MB.roomCategories)(room);
+    if (MB.fillCategorySelect) MB.fillCategorySelect($("rec-category"), cats, $("rec-category").value);
+    else $("rec-category").innerHTML = cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if (MB.bindCategoryPicker) MB.bindCategoryPicker($("rec-category"));
     $("rec-paid-by").innerHTML = members.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.display_name)}${m.id === ctx.uid ? " (you)" : ""}</option>`).join("");
 
     async function loadRecurring() {

@@ -117,15 +117,15 @@
     const share = shareOf(row);
     const amount = d.amount != null ? Number(d.amount) : null;
     const paidBy = d.paid_by;
-    const none = { text: "no change", cls: "is-neutral" };
+    const none = null;
     const pill = (amt, kind) => {
       const n = Number(amt) || 0;
       if (n < 0.005) return none;
-      if (kind === "get") return { text: "+" + formatMoney(n) + " you get", cls: "is-good" };
-      if (kind === "owe") return { text: "−" + formatMoney(n) + " you owe", cls: "is-bad" };
-      if (kind === "paid") return { text: "−" + formatMoney(n) + " paid", cls: "is-bad" };
-      if (kind === "spend") return { text: "−" + formatMoney(n), cls: "is-bad" };
-      if (kind === "income") return { text: "+" + formatMoney(n), cls: "is-good" };
+      if (kind === "get") return { amt: "+" + formatMoney(n), label: "you get", cls: "is-good" };
+      if (kind === "owe") return { amt: "−" + formatMoney(n), label: "you owe", cls: "is-bad" };
+      if (kind === "paid") return { amt: "−" + formatMoney(n), label: "paid", cls: "is-bad" };
+      if (kind === "spend") return { amt: "−" + formatMoney(n), label: "", cls: "is-bad" };
+      if (kind === "income") return { amt: "+" + formatMoney(n), label: "", cls: "is-good" };
       return none;
     };
     if (action === "settlement_recorded" || action === "settlement_confirmed") {
@@ -155,9 +155,9 @@
       if (share == null) return none;
       if (paidBy === uid) {
         const back = Math.max(0, (amount != null ? amount : Number(share)) - Number(share));
-        return back > 0.004 ? { text: "−" + formatMoney(back) + " reversed", cls: "is-bad" } : none;
+        return back > 0.004 ? { amt: "−" + formatMoney(back), label: "reversed", cls: "is-bad" } : none;
       }
-      if (Number(share) > 0.004) return { text: "+" + formatMoney(share) + " reversed", cls: "is-good" };
+      if (Number(share) > 0.004) return { amt: "+" + formatMoney(share), label: "reversed", cls: "is-good" };
       return none;
     }
     if (action === "personal_added" || action === "personal_edited") {
@@ -177,7 +177,7 @@
     const uid = MB.uid();
     switch (row.action) {
       case "expense_added":
-        return actor + " added " + expBit + (amt ? " · " + amt : "");
+        return actor + " added " + expBit;
       case "expense_edited":
         return actor + " edited " + expBit;
       case "expense_deleted":
@@ -297,11 +297,16 @@
         <h3 class="day-heading">${escapeHtml(g.heading)}</h3>
         <div class="list">
           ${g.rows.map((row) => {
+            const typ = typeOf(row);
             const imp = impact(row);
             const href = hrefFor(row);
-            const chip = `<span class="activity-impact ${imp.cls === "is-good" ? "is-good" : (imp.cls === "is-bad" ? "is-bad" : "is-neutral")}">${escapeHtml(imp.text)}</span>`;
+            const hasImp = !!(imp && imp.amt && imp.cls !== "is-neutral");
+            const chip = hasImp
+              ? `<span class="activity-impact ${imp.cls}"><span class="impact-amt">${escapeHtml(imp.amt)}</span>${imp.label ? `<span class="impact-lbl">${escapeHtml(imp.label)}</span>` : ""}</span>`
+              : "";
             const thumb = row._proofUrl ? MB.proofThumbHtml(row._proofUrl, "Payment screenshot") : "";
-            return `<a class="list-item activity-item" href="${escapeHtml(href)}">
+            const cls = "list-item activity-item" + (typ === "member" ? " is-member" : "") + (hasImp ? "" : " is-neutral");
+            return `<a class="${cls}" href="${escapeHtml(href)}">
               ${media(row)}
               <div class="activity-copy">
                 <div class="item-title">${escapeHtml(sentence(row))}</div>

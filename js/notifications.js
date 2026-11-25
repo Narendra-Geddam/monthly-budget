@@ -2,6 +2,12 @@
   const MB = window.MB;
   const { $, escapeHtml } = MB;
 
+  function displayNotice(text, fallback) {
+    const raw = (text == null || text === "") ? (fallback || "") : text;
+    return MB.withoutAdminLabel ? MB.withoutAdminLabel(raw) : raw;
+  }
+
+
   function timeLabel(iso) {
     if (!iso) return "";
     const d = new Date(iso);

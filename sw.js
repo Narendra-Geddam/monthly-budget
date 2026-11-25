@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v26";
+const SHELL_CACHE = "mb-shell-v27";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",

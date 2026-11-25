@@ -77,7 +77,7 @@
       const pending = JSON.parse(sessionStorage.getItem("monthly-budget-join-pending") || "null");
       if (pending && pending.status === "pending" && (!code || String(pending.code || "").toUpperCase() === code || String(pending.name || "") === ($("invite-title").textContent || ""))) {
         $("invite-status").hidden = false;
-        $("invite-status").textContent = "Request sent, waiting for admin approval. You'll get a notification when they respond.";
+        $("invite-status").textContent = "Request sent, waiting for approval. You'll get a notification when they respond.";
         $("invite-title").textContent = "Request sent";
         $("join-form").hidden = true;
         return;
@@ -110,7 +110,7 @@
         }
         if (data.status === "pending") {
           $("invite-status").hidden = false;
-          $("invite-status").textContent = "Request sent, waiting for admin approval. You'll get a notification when they respond.";
+          $("invite-status").textContent = "Request sent, waiting for approval. You'll get a notification when they respond.";
           $("invite-title").textContent = "Request sent";
           $("join-form").hidden = true;
           return;
