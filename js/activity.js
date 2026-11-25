@@ -69,13 +69,31 @@
     return time;
   }
 
+  function dayKey(iso) {
+    return (MB.localDayKey || function (value) {
+      const d = value ? new Date(value) : null;
+      if (!d || !Number.isFinite(d.getTime())) return String(value || "").slice(0, 10);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    })(iso);
+  }
   function dayHeading(iso) {
-    const d = iso ? new Date(iso) : null;
-    if (d && Number.isFinite(d.getTime())) {
-      const local = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-      return MB.friendlyDate(local);
-    }
-    return MB.friendlyDate(String(iso || "").slice(0, 10));
+    return MB.friendlyDate(dayKey(iso));
+  }
+  function groupByDay(rows) {
+    const list = (rows || []).slice().sort((a, b) => {
+      const ta = new Date(a && a.created_at || 0).getTime();
+      const tb = new Date(b && b.created_at || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    const groups = [];
+    list.forEach((row) => {
+      const key = dayKey(row.created_at);
+      const heading = dayHeading(row.created_at);
+      const last = groups[groups.length - 1];
+      if (last && (last.key === key || last.heading === heading)) last.rows.push(row);
+      else groups.push({ key, heading, rows: [row] });
+    });
+    return groups;
   }
 
   function detail(row) {
@@ -285,13 +303,7 @@
       $("activity-more-wrap").hidden = true;
       return;
     }
-    const groups = [];
-    items.forEach((row) => {
-      const key = String(row.created_at || "").slice(0, 10);
-      const last = groups[groups.length - 1];
-      if (!last || last.key !== key) groups.push({ key, heading: dayHeading(row.created_at), rows: [row] });
-      else last.rows.push(row);
-    });
+    const groups = groupByDay(items);
     host.innerHTML = groups.map((g) => `
       <section class="activity-day">
         <h3 class="day-heading">${escapeHtml(g.heading)}</h3>
@@ -425,6 +437,9 @@
     items = [];
     loadPage(true);
   }
+
+  MB.groupActivityDays = groupByDay;
+  MB.activityDayKey = dayKey;
 
   async function main() {
     const ctx = await MB.bootApp({ title: "Activity" });

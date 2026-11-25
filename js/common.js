@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=27";
+  const MANIFEST_HREF = "manifest.json?v=28";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -76,9 +76,19 @@
           } catch (e) { /* ignore */ }
           location.reload();
         };
-        if (navigator.serviceWorker.controller) {
-          navigator.serviceWorker.addEventListener("controllerchange", reloadOnce);
-        }
+        try {
+          if (sessionStorage.getItem("mb-sw-reloading")) {
+            setTimeout(() => { try { sessionStorage.removeItem("mb-sw-reloading"); } catch (e) { /* ignore */ } }, 2500);
+          }
+        } catch (e) { /* ignore */ }
+        // Reload on a *new* worker taking over, not on the first SW claim (that would
+        // interrupt sign-in). Clear the session flag after a successful reload so a
+        // later update in the same tab can apply without a full app reopen.
+        let hadController = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!hadController) { hadController = true; return; }
+          reloadOnce();
+        });
         navigator.serviceWorker.register(withBase("sw.js"), {
           scope: (siteBase() || "") + "/",
           updateViaCache: "none",
@@ -91,6 +101,12 @@
               if (next.state === "installed") promptSkip(next);
             });
           });
+          let ticks = 0;
+          const poke = setInterval(() => {
+            ticks += 1;
+            checkUpdate(reg);
+            if (ticks >= 6) clearInterval(poke);
+          }, 8000);
         }).catch(() => {});
         const onVisible = () => {
           if (document.visibilityState && document.visibilityState !== "visible") return;
@@ -420,7 +436,23 @@
     return { start, end };
   }
   function todayISO() {
-    const d = new Date();
+    return localDayKey(new Date());
+  }
+  function localDayKey(iso) {
+    if (iso == null || iso === "") return "";
+    if (iso instanceof Date) {
+      if (!Number.isFinite(iso.getTime())) return "";
+      return iso.getFullYear() + "-" + String(iso.getMonth() + 1).padStart(2, "0") + "-" + String(iso.getDate()).padStart(2, "0");
+    }
+    const raw = String(iso).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    // Accept PostgREST/ISO oddities: space instead of T, +00 instead of +00:00.
+    const normalized = raw
+      .replace(/^(\d{4}-\d{2}-\d{2}) (\d)/, "$1T$2")
+      .replace(/([+-]\d{2})$/, "$1:00")
+      .replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+    const d = new Date(normalized);
+    if (!Number.isFinite(d.getTime())) return raw.slice(0, 10);
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
   function formatDateIN(iso) {
@@ -2523,7 +2555,7 @@
   window.MB = {
     CATEGORIES, PERSONAL_EXPENSE_CATS, INCOME_CATS, CAT_COLORS, CAT_COLOR_TOKENS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
     $, escapeHtml, errorMessage, formatMoney, equalSplits,
-    getSelectedMonth, setSelectedMonth, monthLabel, monthBounds, todayISO,
+    getSelectedMonth, setSelectedMonth, monthLabel, monthBounds, todayISO, localDayKey,
     client, uid, currentPage, configured,
     getActiveRoomId, setActiveRoomId,
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
