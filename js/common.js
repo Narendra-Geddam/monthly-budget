@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=29";
+  const MANIFEST_HREF = "manifest.json?v=30";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -1837,7 +1837,12 @@
       const stamp = sessionStorage.getItem("mb-push-" + key);
       if (stamp) return;
       sessionStorage.setItem("mb-push-" + key, "1");
-      new Notification(title, { body: body || "", tag: key });
+      new Notification(title, {
+        body: body || "",
+        tag: key,
+        icon: withBase("icons/icon-192.png"),
+        badge: withBase("icons/badge-96.png"),
+      });
     } catch (e) { /* ignore */ }
   }
 

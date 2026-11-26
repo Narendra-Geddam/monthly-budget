@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v29";
+const SHELL_CACHE = "mb-shell-v30";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -18,6 +18,11 @@ const SHELL_FILES = [
   "icons/icon-512.png",
   "icons/icon-192-maskable.png",
   "icons/icon-512-maskable.png",
+  "icons/icon-192-monochrome.png",
+  "icons/icon-512-monochrome.png",
+  "icons/badge-96.png",
+  "icons/badge-72.png",
+  "icons/badge-48.png",
   "icons/apple-touch-icon.png",
   "icons/og.png",
   "images/illu-house.webp",
@@ -129,7 +134,7 @@ self.addEventListener("push", (event) => {
   const opts = {
     body: payload.body || "",
     icon: payload.icon && /^https?:/i.test(payload.icon) ? payload.icon : withBase("icons/icon-192.png"),
-    badge: payload.badge && /^https?:/i.test(payload.badge) ? payload.badge : withBase("icons/icon-192.png"),
+    badge: payload.badge && /^https?:/i.test(payload.badge) ? payload.badge : withBase("icons/badge-96.png"),
     tag,
     renotify: true,
     silent: false,
