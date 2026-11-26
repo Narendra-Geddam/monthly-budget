@@ -25,7 +25,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Room · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=32" />
+  <link rel="manifest" href="manifest.json?v=33" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -53,21 +53,34 @@
       <div class="list" id="member-list"></div>
     </section>
     <section class="card">
-      <h3>Switch room</h3>
+      <h3>Switch group</h3>
+      <p class="card-sub">You can also switch from the group name in the header.</p>
       <form id="switch-form" style="margin-top:12px">
-        <label class="field"><span>Your rooms</span><select id="room-switch" class="select"></select></label>
+        <label class="field"><span>Your groups</span><select id="room-switch" class="select"></select></label>
         <button type="submit" class="secondary-btn">Switch</button>
       </form>
     </section>
     <section class="card">
-      <h3>Create or join another room</h3>
+      <h3>Create or join another group</h3>
       <form id="create-form" style="margin-top:12px">
-        <label class="field"><span>New room name</span><input type="text" id="new-room-name" maxlength="80" placeholder="Room name" required /></label>
-        <button type="submit" class="primary-btn">Create room</button>
+        <label class="field"><span>Group name</span><input type="text" id="new-room-name" maxlength="80" placeholder="e.g. Home, Goa trip" required /></label>
+        <label class="field"><span>Type</span>
+          <select id="new-room-type" class="select">
+            <option value="home">🏠 Home</option>
+            <option value="friends">👥 Friends</option>
+            <option value="trip">✈️ Trip</option>
+            <option value="other">✨ Other</option>
+          </select>
+        </label>
+        <div id="new-room-dates" class="filters" hidden>
+          <label class="field"><span>Start</span><input type="date" id="new-room-start" /></label>
+          <label class="field"><span>End</span><input type="date" id="new-room-end" /></label>
+        </div>
+        <button type="submit" class="primary-btn">Create group</button>
       </form>
       <form id="join-form" style="margin-top:16px">
         <label class="field"><span>Invite code</span><input type="text" id="join-code" maxlength="6" placeholder="ABC123" autocapitalize="characters" /></label>
-        <button type="submit" class="secondary-btn">Join room</button>
+        <button type="submit" class="secondary-btn">Join group</button>
       </form>
       <p class="form-error" id="room-error" hidden></p>
     </section>

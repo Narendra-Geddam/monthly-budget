@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=32";
+  const MANIFEST_HREF = "manifest.json?v=33";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -130,7 +130,14 @@
 
   const THEME_KEY = "monthly-budget-theme";
   const ROOM_KEY = "monthly-budget-active-room";
+  const ROOM_META_KEY = "monthly-budget-active-room-meta";
   const MONTH_KEY = "monthly-budget-month";
+  const GROUP_TYPES = [
+    { id: "home", emoji: "🏠", label: "Home" },
+    { id: "friends", emoji: "👥", label: "Friends" },
+    { id: "trip", emoji: "✈️", label: "Trip" },
+    { id: "other", emoji: "✨", label: "Other" },
+  ];
   const PENDING_CODE_KEY = "monthly-budget-pending-code";
 
   function uniqueCats(list) {
@@ -444,6 +451,66 @@
   function todayISO() {
     return localDayKey(new Date());
   }
+  function roomTypeMeta(type) {
+    const id = String(type || "home").toLowerCase();
+    return GROUP_TYPES.find((t) => t.id === id) || GROUP_TYPES[0];
+  }
+  function isTripRoom(room) {
+    return !!(room && String(room.type || "").toLowerCase() === "trip");
+  }
+  function periodBounds(room, month) {
+    const r = room || periodRoom;
+    if (isTripRoom(r)) {
+      const created = r.created_at ? localDayKey(r.created_at) : "";
+      const start = r.start_date || created || todayISO();
+      const end = r.end_date || todayISO();
+      return { start, end, kind: "trip" };
+    }
+    const key = month || getSelectedMonth();
+    const b = monthBounds(key);
+    return { start: b.start, end: b.end, kind: "month", month: key };
+  }
+  function periodCacheKey(room, month) {
+    const p = periodBounds(room, month);
+    return p.kind === "trip" ? ("trip:" + p.start + ":" + p.end) : (p.month || month || getSelectedMonth());
+  }
+  function formatDateRange(start, end) {
+    if (!start && !end) return "";
+    const a = start ? (friendlyDate(start) || start) : "";
+    const b = end ? (friendlyDate(end) || end) : "";
+    if (a && b && a === b) return a;
+    if (a && b) return a + " – " + b;
+    return a || b;
+  }
+  function rememberRoomMeta(room) {
+    try {
+      if (!room || !room.id) {
+        localStorage.removeItem(ROOM_META_KEY);
+        return;
+      }
+      localStorage.setItem(ROOM_META_KEY, JSON.stringify({
+        id: room.id,
+        type: room.type || "home",
+        name: room.name || "",
+        start_date: room.start_date || null,
+        end_date: room.end_date || null,
+        created_at: room.created_at || null,
+      }));
+    } catch (e) { /* ignore */ }
+  }
+  function peekRoomMeta() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ROOM_META_KEY) || "null");
+      if (!raw || !raw.id) return null;
+      const active = getActiveRoomId();
+      if (active && raw.id !== active) return null;
+      return raw;
+    } catch (e) { return null; }
+  }
+  function groupNetLabel(net) {
+    return netLabel(Number(net) || 0);
+  }
+  let periodRoom = null;
   function localDayKey(iso) {
     if (iso == null || iso === "") return "";
     if (iso instanceof Date) {
@@ -548,7 +615,10 @@
     const next = id || "";
     try {
       if (next) localStorage.setItem(ROOM_KEY, next);
-      else localStorage.removeItem(ROOM_KEY);
+      else {
+        localStorage.removeItem(ROOM_KEY);
+        localStorage.removeItem(ROOM_META_KEY);
+      }
     } catch (e) { /* ignore */ }
     if (prev !== next) clearMemoryAppState();
   }
@@ -765,8 +835,9 @@
     });
   }
 
-  async function loadMonthData(roomId, month) {
-    const { start, end } = monthBounds(month);
+  async function loadMonthData(roomId, month, room) {
+    const boundRoom = (room && room.id) ? room : (periodRoom && periodRoom.id === roomId ? periodRoom : { id: roomId });
+    const { start, end } = periodBounds(boundRoom, month);
     const [exRes, setRes] = await Promise.all([
       client().from("room_expenses").select("id, room_id, paid_by, created_by, amount, description, category, date, created_at, receipt_path, original_amount, original_currency, fx_rate, tax_amount, tip_amount").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
       client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, rejected_at, rejected_by, voided_at, voided_by, proof_path").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
@@ -1247,13 +1318,19 @@
           </div>`;
       } else {
       header.innerHTML = `
-        <a class="brand" href="dashboard.html" title="Monthly Budget home">
-          <img class="brand-logo" src="${withBase("favicon.svg?v=22")}" width="32" height="32" alt="" />
-          <div class="brand-text">
-            <p class="brand-kicker">Monthly Budget</p>
-            <h1 id="room-name" class="room-name">Monthly Budget</h1>
-          </div>
-        </a>
+        <div class="brand">
+          <a class="brand-logo-link" href="dashboard.html" title="Home">
+            <img class="brand-logo" src="${withBase("favicon.svg?v=22")}" width="32" height="32" alt="" />
+          </a>
+          <button type="button" class="group-switch" id="group-switch" aria-haspopup="dialog" aria-label="Switch group">
+            <span class="group-switch-emoji" id="group-switch-emoji" hidden></span>
+            <span class="brand-text">
+              <p class="brand-kicker" id="group-switch-kicker">Monthly Budget</p>
+              <span id="room-name" class="room-name">Monthly Budget</span>
+            </span>
+            <span class="group-switch-caret" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+        </div>
         <nav class="desktop-nav" aria-label="Main">
           ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses" && p.id !== "add").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
         </nav>
@@ -1279,7 +1356,13 @@
         `<a href="${item.href}" class="${page === item.id || (item.also || []).includes(page) ? "is-active" : ""}">${item.icon}<span>${item.label}</span></a>`
       ).join("") + `<button type="button" id="more-btn" aria-label="More options, including settle up" title="More, including settle up" ${MORE_PAGES.includes(page) ? 'class="is-active"' : ""}>${ICONS.more}<span>More</span></button>`;
     }
-    if (month) injectMonthBar(month);
+    const forceMonth = !!(options && options.keepMonth && (currentPage() === "personal.html" || currentPage() === "add-expense.html"));
+    const peeked = !forceMonth ? peekRoomMeta() : null;
+    if (month) {
+      if (peeked && isTripRoom(peeked)) injectPeriodBar(peeked);
+      else injectMonthBar(month);
+    }
+    bindGroupSwitch(options && options.rooms);
     syncThemeToggle();
     $("theme-toggle") && $("theme-toggle").addEventListener("click", () => {
       setTheme(currentTheme() === "dark" ? "light" : "dark");
@@ -1330,6 +1413,237 @@
     $("prev-month").addEventListener("click", () => go(shiftMonth(getSelectedMonth(), -1)));
     $("next-month").addEventListener("click", () => go(shiftMonth(getSelectedMonth(), 1)));
     $("month-input").addEventListener("change", (e) => go(e.target.value));
+  }
+
+  function ensureMonthChrome() {
+    const header = document.getElementById("topbar");
+    let chrome = document.querySelector(".app-chrome");
+    if (header && !chrome) {
+      chrome = document.createElement("div");
+      chrome.className = "app-chrome";
+      header.parentNode.insertBefore(chrome, header);
+      chrome.appendChild(header);
+    }
+    const main = document.getElementById("main") || document.querySelector("main.page");
+    let bar = document.getElementById("month-picker");
+    if (!bar) bar = document.querySelector(".month-bar");
+    if (!bar || bar.closest("#month-card, #budget-card")) {
+      bar = document.createElement("div");
+      bar.id = "month-picker";
+      bar.className = "month-bar";
+      if (chrome) chrome.appendChild(bar);
+      else if (main) main.insertBefore(bar, main.firstChild);
+    } else {
+      bar.id = "month-picker";
+      if (chrome && bar.parentNode !== chrome) chrome.appendChild(bar);
+    }
+    return bar;
+  }
+
+  function injectPeriodBar(room) {
+    const bar = ensureMonthChrome();
+    const range = formatDateRange((periodBounds(room).start), periodBounds(room).end);
+    bar.hidden = false;
+    bar.className = "month-bar is-trip";
+    bar.innerHTML = `
+      <div class="month-current-wrap trip-period">
+        <span class="month-current" id="month-open">Whole trip</span>
+        ${range ? `<span class="month-range">${escapeHtml(range)}</span>` : ""}
+      </div>`;
+  }
+
+  function paintPeriodChrome(room, opts) {
+    opts = opts || {};
+    const bar = $("month-picker") || document.querySelector("main > .month-bar");
+    if (!bar) return;
+    if (!room) {
+      bar.hidden = true;
+      return;
+    }
+    if (opts.keepMonth) {
+      if (bar.classList.contains("is-trip") || !bar.querySelector("#month-input")) injectMonthBar(getSelectedMonth());
+      bar.hidden = false;
+      return;
+    }
+    if (isTripRoom(room)) injectPeriodBar(room);
+    else if (bar.classList.contains("is-trip") || !bar.querySelector("#month-input")) injectMonthBar(getSelectedMonth());
+    bar.hidden = false;
+  }
+
+  let lastGroupRooms = [];
+  function bindGroupSwitch(rooms) {
+    const btn = $("group-switch");
+    if (!btn || btn.dataset.bound) return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", () => openGroupSwitcher(lastGroupRooms));
+  }
+  function paintGroupSwitch(room) {
+    const nameEl = $("room-name");
+    const emojiEl = $("group-switch-emoji");
+    const kicker = $("group-switch-kicker");
+    const btn = $("group-switch");
+    const meta = roomTypeMeta(room && room.type);
+    if (nameEl) nameEl.textContent = room ? room.name : "Monthly Budget";
+    if (emojiEl) {
+      emojiEl.textContent = room ? meta.emoji : "";
+      emojiEl.hidden = !room;
+    }
+    if (kicker) kicker.textContent = room ? meta.label : "Monthly Budget";
+    if (btn) btn.setAttribute("aria-label", room ? ("Switch group, currently " + room.name) : "Create or switch group");
+  }
+  function openGroupSwitcher(rooms) {
+    closeActionSheet();
+    closeMoreSheet({ skipHistory: true });
+    hideFabMenu();
+    const list = (rooms || lastGroupRooms || []).filter((r) => r && !r.archived_at);
+    const active = getActiveRoomId();
+    const rows = list.length ? list.map((r) => {
+      const meta = roomTypeMeta(r.type);
+      const net = groupNetLabel(r.net);
+      const current = r.id === active;
+      const range = isTripRoom(r) ? formatDateRange(r.start_date, r.end_date) : "";
+      const sub = [meta.label, range, current ? "Current" : ""].filter(Boolean).join(" · ");
+      return `<button type="button" class="sheet-row group-switch-row${current ? " is-current" : ""}" data-group-id="${escapeHtml(r.id)}">
+        <span class="group-switch-emoji" aria-hidden="true">${meta.emoji}</span>
+        <span class="sheet-label">
+          <span class="group-row-name">${escapeHtml(r.name || "Group")}</span>
+          <span class="group-row-sub">${escapeHtml(sub)}</span>
+        </span>
+        <span class="group-row-net ${net.cls}">${escapeHtml(net.text)}</span>
+      </button>`;
+    }).join("") : `<p class="sheet-message">You are not in a group yet.</p>`;
+    const back = document.createElement("div");
+    back.className = "sheet-backdrop";
+    back.id = "action-sheet";
+    back.innerHTML = `<div class="sheet action-sheet group-sheet is-confirm" role="dialog" aria-modal="true" aria-labelledby="action-sheet-title">
+      <header class="sheet-head">
+        <p class="sheet-title" id="action-sheet-title">Your groups</p>
+        <button type="button" class="sheet-close" id="action-sheet-close" aria-label="Close">${ICONS.close}</button>
+      </header>
+      <div class="sheet-body">
+        <nav class="sheet-list">${rows}</nav>
+        <div class="sheet-footer-actions">
+          <button type="button" class="primary-btn" id="create-group-btn">Create group</button>
+        </div>
+      </div>
+    </div>`;
+    const finish = () => closeActionSheet();
+    back.addEventListener("click", (e) => { if (e.target === back) finish(); });
+    document.body.appendChild(back);
+    bindSheetViewport();
+    const closeBtn = $("action-sheet-close");
+    if (closeBtn) closeBtn.addEventListener("click", finish);
+    back.querySelectorAll("[data-group-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-group-id");
+        const room = list.find((r) => r.id === id);
+        finish();
+        if (!id || id === active) return;
+        setActiveRoomId(id);
+        if (room) rememberRoomMeta(room);
+        location.reload();
+      });
+    });
+    const createBtn = $("create-group-btn");
+    if (createBtn) createBtn.addEventListener("click", () => {
+      finish();
+      openCreateGroupSheet();
+    });
+    window.addEventListener("keydown", onActionSheetKeydown);
+    try { (closeBtn || createBtn || back).focus(); } catch (err) { /* ignore */ }
+    return back;
+  }
+  function typeOptionsHtml(selected) {
+    const cur = selected || "home";
+    return GROUP_TYPES.map((t) =>
+      `<button type="button" class="group-type-opt${t.id === cur ? " is-active" : ""}" data-type="${t.id}" aria-pressed="${t.id === cur ? "true" : "false"}">
+        <span aria-hidden="true">${t.emoji}</span>
+        <span>${escapeHtml(t.label)}</span>
+      </button>`
+    ).join("");
+  }
+  function openCreateGroupSheet(opts) {
+    opts = opts || {};
+    closeActionSheet();
+    hideFabMenu();
+    const back = document.createElement("div");
+    back.className = "sheet-backdrop";
+    back.id = "action-sheet";
+    back.innerHTML = `<div class="sheet action-sheet group-sheet is-confirm" role="dialog" aria-modal="true" aria-labelledby="action-sheet-title">
+      <header class="sheet-head">
+        <p class="sheet-title" id="action-sheet-title">Create group</p>
+        <button type="button" class="sheet-close" id="action-sheet-close" aria-label="Close">${ICONS.close}</button>
+      </header>
+      <div class="sheet-body">
+        <form id="create-group-form" class="create-group-form">
+          <label class="field"><span>Name</span>
+            <input type="text" id="create-group-name" maxlength="80" required placeholder="e.g. Home, Goa trip, College friends" />
+          </label>
+          <div class="field">
+            <span>Type</span>
+            <div class="group-type-grid" id="create-group-types">${typeOptionsHtml("home")}</div>
+            <input type="hidden" id="create-group-type" value="home" />
+          </div>
+          <div id="create-group-dates" class="filters" hidden>
+            <label class="field"><span>Start</span><input type="date" id="create-group-start" /></label>
+            <label class="field"><span>End</span><input type="date" id="create-group-end" /></label>
+          </div>
+          <p class="form-error" id="create-group-error" hidden></p>
+          <button type="submit" class="primary-btn">Create group</button>
+        </form>
+      </div>
+    </div>`;
+    const finish = () => closeActionSheet();
+    back.addEventListener("click", (e) => { if (e.target === back) finish(); });
+    document.body.appendChild(back);
+    bindSheetViewport();
+    const closeBtn = $("action-sheet-close");
+    if (closeBtn) closeBtn.addEventListener("click", finish);
+    const typeInput = $("create-group-type");
+    const dates = $("create-group-dates");
+    back.querySelectorAll("#create-group-types [data-type]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        typeInput.value = btn.getAttribute("data-type");
+        back.querySelectorAll("#create-group-types [data-type]").forEach((b) => {
+          const on = b === btn;
+          b.classList.toggle("is-active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        dates.hidden = typeInput.value !== "trip";
+      });
+    });
+    $("create-group-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = $("create-group-name").value.trim();
+      const typ = typeInput.value || "home";
+      const err = $("create-group-error");
+      if (err) { err.hidden = true; err.textContent = ""; }
+      if (!name) {
+        if (err) { err.hidden = false; err.textContent = "Give this group a name."; }
+        return;
+      }
+      try {
+        const { data, error } = await client().rpc("create_room", {
+          p_name: name,
+          p_type: typ,
+          p_start_date: typ === "trip" ? ($("create-group-start").value || null) : null,
+          p_end_date: typ === "trip" ? ($("create-group-end").value || null) : null,
+        });
+        if (error) throw error;
+        if (data && data.id) {
+          setActiveRoomId(data.id);
+          rememberRoomMeta(data);
+        }
+        finish();
+        location.href = "dashboard.html";
+      } catch (ex) {
+        if (err) { err.hidden = false; err.textContent = errorMessage(ex); }
+        else showToast(errorMessage(ex), "error");
+      }
+    });
+    window.addEventListener("keydown", onActionSheetKeydown);
+    try { ($("create-group-name") || closeBtn || back).focus(); } catch (e) { /* ignore */ }
+    return back;
   }
 
   let moreSheetPushed = false;
@@ -1821,7 +2135,7 @@
     const mainEl = document.getElementById("main");
     const month = getSelectedMonth();
     const roomId = getActiveRoomId() || null;
-    const memKey = stateCacheKey(uid(), roomId, month);
+    const memKey = stateCacheKey(uid(), roomId, periodCacheKey(peekRoomMeta() || periodRoom, month));
     if (memoryAppState && memoryAppState.key === memKey && memoryAppState.fresh && memoryAppState.data && (Date.now() - memoryAppState.at) < 2000) {
       const appliedFast = applyAppState(memoryAppState.data);
       paintBootChrome(appliedFast);
@@ -1833,7 +2147,7 @@
     maybeMarkReadFromQuery().catch(() => {});
     const pendingJoin = await maybeJoinPendingCode();
     const useCache = !pendingJoin;
-    const cachedWrap = useCache ? readCachedState(uid(), getActiveRoomId() || roomId, month) : null;
+    const cachedWrap = useCache ? readCachedState(uid(), getActiveRoomId() || roomId, periodCacheKey(peekRoomMeta() || periodRoom, month)) : null;
     const cachedOk = cachedWrap && cacheMatches(cachedWrap, uid(), getActiveRoomId() || roomId, month) && cachedWrap.state && cachedWrap.state.profile;
     if (cachedOk) {
       profile = cachedWrap.state.profile;
@@ -1849,7 +2163,7 @@
         try {
           const data = await fetchAppStateData();
           const applied = applyAppState(data);
-          writeCachedState(data, uid(), applied.room && applied.room.id, month);
+          writeCachedState(data, uid(), applied.room && applied.room.id, periodCacheKey(applied.room, month));
           paintBootChrome(applied);
           const changed = stateSignature(data) !== prevSig;
           const ctx = buildAppCtx(applied, { fromCache: false, cachedAt: Date.now() });
@@ -1873,7 +2187,7 @@
     try {
       const data = await fetchAppStateData();
       applied = applyAppState(data);
-      writeCachedState(data, uid(), applied.room && applied.room.id, month);
+      writeCachedState(data, uid(), applied.room && applied.room.id, periodCacheKey(applied.room, month));
     } catch (err) {
       console.warn(err);
       await loadProfile();
@@ -2319,10 +2633,11 @@
     const room = applied && applied.room;
     const pending = (applied && applied.pending) || [];
     const unread = (applied && applied.unread) || 0;
-    const roomName = $("room-name");
-    if (roomName) roomName.textContent = room ? room.name : "Monthly Budget";
-    const monthBar = $("month-picker") || document.querySelector("main > .month-bar");
-    if (monthBar && !room) monthBar.hidden = true;
+    periodRoom = room || null;
+    lastGroupRooms = rooms.slice();
+    paintGroupSwitch(room);
+    rememberRoomMeta(room);
+    paintPeriodChrome(room, { keepMonth: currentPage() === "personal.html" || (currentPage() === "add-expense.html" && /(?:^|[?&])(?:mode|kind)=personal/.test(location.search)) });
     if (room && room.currency && CURRENCIES.some((c) => c.code === room.currency)) currency = room.currency;
     setPendingBadge(pending.length || 0);
     setNotifBadge(unread || 0);
@@ -2908,6 +3223,7 @@
     CATEGORIES, PERSONAL_EXPENSE_CATS, INCOME_CATS, CAT_COLORS, CAT_COLOR_TOKENS, CAT_ICONS, CURRENCIES, MONTHS, ICONS,
     $, escapeHtml, errorMessage, formatMoney, equalSplits,
     getSelectedMonth, setSelectedMonth, monthLabel, monthBounds, todayISO, localDayKey,
+    GROUP_TYPES, roomTypeMeta, isTripRoom, periodBounds, formatDateRange, openGroupSwitcher, openCreateGroupSheet, paintGroupSwitch, groupNetLabel,
     client, uid, currentPage, configured,
     getActiveRoomId, setActiveRoomId,
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,

@@ -123,6 +123,9 @@
           categories: cats,
           members_can_add_expenses: $("set-members-add").checked,
           require_join_approval: $("set-approve").checked,
+          type: $("set-type") ? $("set-type").value : undefined,
+          start_date: $("set-start") ? ($("set-start").value || null) : undefined,
+          end_date: $("set-end") ? ($("set-end").value || null) : undefined,
         },
       });
       if (error) return showError("set-error", errorMessage(error));

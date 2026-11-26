@@ -62,18 +62,32 @@
     }
 
     $("room-switch").innerHTML = rooms.length
-      ? rooms.map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === (ctx.room && ctx.room.id) ? "selected" : ""}>${escapeHtml(r.name)} (${escapeHtml(r.code)})</option>`).join("")
-      : `<option>No rooms yet</option>`;
+      ? rooms.map((r) => {
+          const meta = MB.roomTypeMeta ? MB.roomTypeMeta(r.type) : { emoji: "" };
+          return `<option value="${escapeHtml(r.id)}" ${r.id === (ctx.room && ctx.room.id) ? "selected" : ""}>${meta.emoji} ${escapeHtml(r.name)}</option>`;
+        }).join("")
+      : `<option>No groups yet</option>`;
     $("switch-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const id = $("room-switch").value;
       if (id) MB.setActiveRoomId(id);
       location.href = "dashboard.html";
     });
+    const typSel = $("new-room-type");
+    const dates = $("new-room-dates");
+    if (typSel && dates) {
+      typSel.addEventListener("change", () => { dates.hidden = typSel.value !== "trip"; });
+    }
     $("create-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       hideError("room-error");
-      const { data, error } = await MB.client().rpc("create_room", { p_name: $("new-room-name").value.trim() });
+      const typ = (typSel && typSel.value) || "home";
+      const { data, error } = await MB.client().rpc("create_room", {
+        p_name: $("new-room-name").value.trim(),
+        p_type: typ,
+        p_start_date: typ === "trip" ? (($("new-room-start") && $("new-room-start").value) || null) : null,
+        p_end_date: typ === "trip" ? (($("new-room-end") && $("new-room-end").value) || null) : null,
+      });
       if (error) return showError("room-error", errorMessage(error));
       MB.setActiveRoomId(data.id);
       location.reload();
@@ -83,7 +97,7 @@
       hideError("room-error");
       const { data, error } = await MB.client().rpc("join_room", { p_code: $("join-code").value });
       if (error) return showError("room-error", errorMessage(error));
-      if (data.status === "pending") return showError("room-error", "Your request to join " + (data.name || "this room") + " is waiting for admin approval.");
+      if (data.status === "pending") return showError("room-error", "Your request to join " + (data.name || "this group") + " is waiting for approval.");
       MB.setActiveRoomId(data.id);
       location.reload();
     });

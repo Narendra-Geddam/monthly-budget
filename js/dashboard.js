@@ -3,6 +3,8 @@
   const { $, escapeHtml, formatMoney, netLabel, colorForCategory } = MB;
 
 
+  let dashIsTrip = false;
+
   function renderReceiptPromo() {
     const host = $("dash-promo");
     if (!host) return;
@@ -33,33 +35,72 @@
     });
   }
 
+  function revealRoomDashboard() {
+    const empty = $("dash-empty");
+    if (empty) {
+      empty.hidden = true;
+      empty.innerHTML = "";
+    }
+    const content = $("dash-content");
+    if (!content) return;
+    const stayHidden = new Set(["dash-empty", "dash-promo", "onboard-tip", "push-banner", "onboard-invites", "join-pending-banner", "admin-joins", "budget-banner", "budget-card", "pending-section"]);
+    [...content.children].forEach((el) => {
+      if (stayHidden.has(el.id)) return;
+      el.hidden = false;
+    });
+  }
+
   function renderNoRoom() {
-    $("dash-content").innerHTML = `
+    const content = $("dash-content");
+    if (!content) return;
+    let host = $("dash-empty");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "dash-empty";
+      content.insertBefore(host, content.firstChild);
+    }
+    [...content.children].forEach((el) => {
+      if (el.id !== "dash-empty") el.hidden = true;
+    });
+    host.hidden = false;
+    host.innerHTML = `
       <section class="card">
-        <h2>Set up your room</h2>
-        <p class="card-sub">Create a room for your flat, or enter a 6-character invite code from a roommate.</p>
+        <h2>Set up your group</h2>
+        <p class="card-sub">Create a group for home, friends, or a trip, or enter a 6-character invite code.</p>
         <form id="create-form" style="margin-top:16px">
-          <label class="field"><span>Name</span><input type="text" id="new-room-name" maxlength="80" placeholder="e.g. 3rd Floor Boys" required /></label>
-          <label class="field"><span>Type</span>
-            <select id="new-room-type" class="select">
-              <option value="home">Home / roommate room</option>
-              <option value="trip">Trip or event</option>
-            </select>
-          </label>
+          <label class="field"><span>Name</span><input type="text" id="new-room-name" maxlength="80" placeholder="e.g. Home, Goa trip" required /></label>
+          <div class="field">
+            <span>Type</span>
+            <div class="group-type-grid" id="new-room-types">${(MB.GROUP_TYPES || []).map((t) => `<button type="button" class="group-type-opt${t.id === "home" ? " is-active" : ""}" data-type="${t.id}" aria-pressed="${t.id === "home" ? "true" : "false"}"><span aria-hidden="true">${t.emoji}</span><span>${escapeHtml(t.label)}</span></button>`).join("")}</div>
+            <input type="hidden" id="new-room-type" value="home" />
+          </div>
           <div id="trip-dates" hidden class="filters">
             <label class="field"><span>Start</span><input type="date" id="new-room-start" /></label>
             <label class="field"><span>End</span><input type="date" id="new-room-end" /></label>
           </div>
-          <button type="submit" class="primary-btn">Create room</button>
+          <button type="submit" class="primary-btn">Create group</button>
         </form>
         <form id="join-form" style="margin-top:18px">
           <label class="field"><span>Invite code</span><input type="text" id="join-code" maxlength="6" placeholder="ABC123" autocapitalize="characters" /></label>
-          <button type="submit" class="secondary-btn">Join room</button>
+          <button type="submit" class="secondary-btn">Join group</button>
         </form>
         <p class="form-error" id="room-error" hidden></p>
       </section>`;
-    const typeSel = $("new-room-type");
-    if (typeSel) typeSel.addEventListener("change", () => { $("trip-dates").hidden = typeSel.value !== "trip"; });
+    const typeInput = $("new-room-type");
+    const typeGrid = $("new-room-types");
+    if (typeGrid && typeInput) {
+      typeGrid.querySelectorAll("[data-type]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          typeInput.value = btn.getAttribute("data-type");
+          typeGrid.querySelectorAll("[data-type]").forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle("is-active", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          $("trip-dates").hidden = typeInput.value !== "trip";
+        });
+      });
+    }
     $("create-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = $("new-room-name").value.trim();
@@ -182,7 +223,7 @@
     const rows = Object.entries(spent).map(([name, amount]) => ({ name, amount, color: (colorForCategory || MB.colorForCategory)(name) })).filter((r) => r.amount > 0).sort((a,b) => b.amount - a.amount);
     if (empty) {
       empty.hidden = rows.length > 0;
-      empty.textContent = rows.length ? "" : "No spending to chart this month yet.";
+      empty.textContent = rows.length ? "" : (dashIsTrip ? "No spending to chart for this trip yet." : "No spending to chart this month yet.");
     }
     canvas.style.opacity = rows.length ? "1" : "0";
     if (legend) legend.innerHTML = rows.map((r) => `<li>${MB.categoryChip(r.name)}<span class="amt">${escapeHtml(formatMoney(r.amount))}</span></li>`).join("");
@@ -262,11 +303,65 @@
     });
   }
 
+  function renderGroupCards(ctx) {
+    const rooms = ((ctx.rooms || []).filter((r) => r && !r.archived_at));
+    if (!rooms.length) return;
+    let host = $("group-cards");
+    if (!host) {
+      host = document.createElement("section");
+      host.id = "group-cards";
+      host.className = "group-cards";
+      host.setAttribute("aria-label", "Your groups");
+      const content = $("dash-content");
+      const hero = $("hero-status");
+      if (content && hero) content.insertBefore(host, hero.nextSibling);
+      else if (content) content.insertBefore(host, content.firstChild);
+    }
+    host.hidden = false;
+    const active = ctx.room && ctx.room.id;
+    host.innerHTML = `<header class="card-head"><div><h2>Your groups</h2><p class="card-sub">Balances for this month, or the whole trip.</p></div></header>
+      <div class="group-card-list">
+        ${rooms.map((r) => {
+          const meta = MB.roomTypeMeta ? MB.roomTypeMeta(r.type) : { emoji: "", label: "" };
+          const net = MB.groupNetLabel ? MB.groupNetLabel(r.net) : MB.netLabel(Number(r.net) || 0);
+          const range = MB.isTripRoom && MB.isTripRoom(r) && MB.formatDateRange ? MB.formatDateRange(r.start_date, r.end_date) : "";
+          const current = r.id === active;
+          return `<button type="button" class="group-card${current ? " is-current" : ""}" data-group-id="${escapeHtml(r.id)}">
+            <span class="group-card-emoji" aria-hidden="true">${meta.emoji}</span>
+            <span class="group-card-copy">
+              <span class="group-card-name">${escapeHtml(r.name || "Group")}</span>
+              <span class="group-card-sub">${escapeHtml([meta.label, range, current ? "Current" : ""].filter(Boolean).join(" · "))}</span>
+            </span>
+            <span class="group-card-net ${net.cls}">${escapeHtml(net.text)}</span>
+          </button>`;
+        }).join("")}
+      </div>`;
+    host.querySelectorAll("[data-group-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-group-id");
+        if (!id || id === active) {
+          if (MB.openGroupSwitcher) MB.openGroupSwitcher(rooms);
+          return;
+        }
+        MB.setActiveRoomId(id);
+        const room = rooms.find((r) => r.id === id);
+        if (room && MB.rememberRoomMeta) {}
+        location.reload();
+      });
+    });
+  }
+
   async function main() {
     const ctx = await MB.bootApp({ title: "This month", month: true });
     if (!ctx) return;
     setupPushBanner();
     if (!ctx.room) { renderReceiptPromo(); return renderNoRoom(); }
+    revealRoomDashboard();
+    if (!$("hero-status") || !$("hero-line")) {
+      location.reload();
+      return;
+    }
+    renderGroupCards(ctx);
     const members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     bindDashInvite(ctx, members);
     const packed = (ctx.expenses && ctx.splits) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
@@ -290,9 +385,11 @@
       }
       const sub = $("hero-sub");
       if (sub) {
+        const trip = MB.isTripRoom && MB.isTripRoom(ctx.room);
+        const periodWord = trip ? "this trip" : "this month";
         sub.innerHTML = hero.direction === "settled"
-          ? "No one in this room owes anyone for this month."
-          : 'Based on accepted shares this month. ' + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.");
+          ? "No one in this group owes anyone for " + periodWord + "."
+          : "Based on accepted shares for " + periodWord + ". " + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.");
       }
       const heroNote = $("hero-note");
       if (heroNote) {
@@ -312,11 +409,20 @@
         }
       }
     }
+    dashIsTrip = !!(MB.isTripRoom && MB.isTripRoom(ctx.room));
+    if (dashIsTrip) {
+      const monthHead = document.querySelector("#month-card h2");
+      if (monthHead) monthHead.textContent = "This trip";
+    }
     renderReceiptPromo();
     MB.renderOnboardingTip($("onboard-tip"));
     const limit = Number(ctx.room.monthly_budget_limit) || 0;
     const sentence = $("month-sentence");
-    if (sentence) sentence.textContent = (MB.monthSpendSentence || function (spent, lim) { return (MB.formatMoney(spent) + (lim > 0 ? " of " + MB.formatMoney(lim) + " used" : " spent this month")); })(roomTotal, limit, ctx.month);
+    if (sentence) {
+      sentence.textContent = dashIsTrip
+        ? (formatMoney(roomTotal) + (limit > 0 ? " of " + formatMoney(limit) + " used this trip" : " spent this trip"))
+        : (MB.monthSpendSentence || function (spent, lim) { return (MB.formatMoney(spent) + (lim > 0 ? " of " + MB.formatMoney(lim) + " used" : " spent this month")); })(roomTotal, limit, ctx.month);
+    }
     const shareEl = $("month-share");
     if (shareEl) shareEl.textContent = "Your share " + formatMoney(mine.shareAmt);
     const bar = $("month-progress");
@@ -356,7 +462,7 @@
     const recent = (expenses || []).filter((e) => e && e.id).slice(0, 6);
     $("recent-list").innerHTML = recent.length
       ? recent.map((e) => MB.expenseRowHtml(e, { members, splits })).join("")
-      : MB.emptyState({ art: "images/illu-receipts.webp", title: "No expenses this month", text: "Add rent, groceries, or a dinner to start tracking together.", href: "add-expense.html", cta: "Add an expense" });
+      : MB.emptyState({ art: "images/illu-receipts.webp", title: dashIsTrip ? "No expenses on this trip" : "No expenses this month", text: dashIsTrip ? "Add a travel expense to start tracking together." : "Add rent, groceries, or a dinner to start tracking together.", href: "add-expense.html", cta: "Add an expense" });
 
     const spent = {};
     (expenses || []).forEach((e) => { if (!e) return; spent[e.category] = (spent[e.category] || 0) + Number(e.amount); });
@@ -422,12 +528,12 @@
       if (limit > 0 && pct >= 100) {
         banner.hidden = false;
         banner.className = "budget-banner";
-        banner.innerHTML = `<p><strong>This month's room budget is exceeded</strong>You've spent ${escapeHtml(formatMoney(roomTotal))} of ${escapeHtml(formatMoney(limit))}.</p><button type="button" class="text-btn" id="enable-push">Enable alerts</button>`;
+        banner.innerHTML = `<p><strong>${dashIsTrip ? "This trip's budget is exceeded" : "This month's room budget is exceeded"}</strong>You've spent ${escapeHtml(formatMoney(roomTotal))} of ${escapeHtml(formatMoney(limit))}.</p><button type="button" class="text-btn" id="enable-push">Enable alerts</button>`;
         MB.maybeBrowserNotify("Room budget exceeded", "Spending is " + formatMoney(roomTotal) + " of " + formatMoney(limit), "room-over-" + ctx.month);
       } else if (limit > 0 && pct >= 80) {
         banner.hidden = false;
         banner.className = "budget-banner is-warn";
-        banner.innerHTML = `<p><strong>This month's room budget is at ${pct}%</strong>You've spent ${escapeHtml(formatMoney(roomTotal))} of ${escapeHtml(formatMoney(limit))}.</p><button type="button" class="text-btn" id="enable-push">Enable alerts</button>`;
+        banner.innerHTML = `<p><strong>${dashIsTrip ? "This trip's budget is at " + pct + "%" : "This month's room budget is at " + pct + "%"}</strong>You've spent ${escapeHtml(formatMoney(roomTotal))} of ${escapeHtml(formatMoney(limit))}.</p><button type="button" class="text-btn" id="enable-push">Enable alerts</button>`;
       } else if (overCats.length) {
         banner.hidden = false;
         banner.className = "budget-banner";
