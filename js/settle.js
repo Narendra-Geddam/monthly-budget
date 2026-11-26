@@ -194,7 +194,7 @@
         const cutoff = Date.now() - 30 * 60 * 1000;
         const similar = (settlements || []).filter((s) => {
           if (s.from_user !== from || s.to_user !== to) return false;
-          if (s.status === "rejected") return false;
+          if (s.status === "rejected" || s.status === "voided") return false;
           if (Math.abs(Number(s.amount) - amount) > 1.01) return false;
           const ts = s.created_at ? new Date(s.created_at).getTime() : 0;
           return ts && ts >= cutoff;
@@ -220,11 +220,13 @@
     const historyBits = await Promise.all(mineHistory.map(async (s) => {
       const pending = s.status === "pending";
       const rejected = s.status === "rejected";
+      const voided = s.status === "voided";
       const canConfirm = pending && s.to_user === ctx.uid;
+      const canUndo = !pending && !rejected && !voided && MB.canUndoSettlement && MB.canUndoSettlement(s, ctx.uid, ctx.room);
       const iPaid = s.from_user === ctx.uid;
       const status = pending
         ? (iPaid ? " · waiting for them to confirm" : " · waiting for you to confirm")
-        : (rejected ? " · not received" : " · confirmed");
+        : (rejected ? " · not received" : (voided ? " · undone" : " · confirmed"));
       let thumb = "";
       if (s.proof_path) {
         try {
@@ -235,15 +237,18 @@
       const title = iPaid
         ? `You paid ${MB.personChip(s.to_user, members, "sm")}`
         : `${MB.personChip(s.from_user, members, "sm")} paid you`;
+      const actions = canConfirm
+        ? `<div class="btn-row compact"><button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}">Confirm received</button><button type="button" class="text-btn" data-reject="${escapeHtml(s.id)}">Didn't get it</button></div>`
+        : (canUndo ? `<div class="btn-row compact"><button type="button" class="text-btn is-danger" data-undo="${escapeHtml(s.id)}">Undo</button></div>` : "");
       return `<div class="list-item">
         <div class="item-icon">₹</div>
         <div>
           <div class="item-title">${title}</div>
           <div class="item-sub">${escapeHtml(MB.friendlyDate(s.date))}${s.note ? " · " + escapeHtml(s.note) : ""}${status}</div>
           ${thumb}
-          ${canConfirm ? `<div class="btn-row compact"><button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}">Confirm received</button><button type="button" class="text-btn" data-reject="${escapeHtml(s.id)}">Didn't get it</button></div>` : ""}
+          ${actions}
         </div>
-        <div class="item-amt ${pending || rejected ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
+        <div class="item-amt ${pending || rejected || voided ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
       </div>`;
     }));
     $("history").innerHTML = historyBits.length ? historyBits.join("") : MB.emptyState({ art: "images/illu-house.webp", title: "No payments yet", text: "When you pay a roommate, or someone pays you, the record will show up here." });
@@ -253,6 +258,19 @@
     });
     $("history").querySelectorAll("[data-reject]").forEach((btn) => {
       btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-reject"), false));
+    });
+    $("history").querySelectorAll("[data-undo]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-undo");
+        const row = mineHistory.find((s) => s.id === id);
+        if (!row || !MB.promptUndoSettlement) return;
+        try {
+          const ok = await MB.promptUndoSettlement(row, members);
+          if (ok) location.reload();
+        } catch (err) {
+          if (MB.showToast) MB.showToast(errorMessage(err), "error");
+        }
+      });
     });
   }
   (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));

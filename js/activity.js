@@ -35,6 +35,10 @@
     });
   }
 
+  function roomOf(roomId) {
+    return (rooms || []).find((r) => r.id === roomId) || null;
+  }
+
   function nameOf(userId, fallback) {
     if (!userId) return fallback || "Someone";
     if (userId === MB.uid()) return "You";
@@ -147,9 +151,17 @@
       return none;
     };
     if (action === "settlement_recorded" || action === "settlement_confirmed") {
+      const sett = row._settlement;
+      if (sett && (sett.status === "voided" || sett.voided_at)) return none;
       const amt = Number(d.amount) || 0;
       if (d.to === uid) return pill(amt, "get");
       if (d.from === uid) return pill(amt, "paid");
+      return none;
+    }
+    if (action === "settlement_voided") {
+      const amt = Number(d.amount) || 0;
+      if (d.to === uid) return { amt: "−" + formatMoney(amt), label: "reversed", cls: "is-bad" };
+      if (d.from === uid) return { amt: "+" + formatMoney(amt), label: "reversed", cls: "is-good" };
       return none;
     }
     if (action === "share_accepted" || action === "share_forced") {
@@ -218,10 +230,20 @@
           const other = nameOf(d.to, "them");
           return (row.actor_id === uid ? "You paid " : actor + " paid ") + other + (amt ? " · " + amt : "") + via;
         }
-        return actor + " recorded a payment" + (amt ? " · " + amt : "") + via;
+        return actor + " paid " + nameOf(d.to, "a roommate") + (amt ? " · " + amt : "") + via;
       }
       case "settlement_confirmed":
         return actor + " confirmed a" + (amt ? " " + amt : "") + " payment";
+      case "settlement_voided": {
+        const payer = nameOf(d.from, "a roommate");
+        const amtBit = amt ? " the " + amt + " payment" : " a payment";
+        if (row.actor_id === uid) {
+          if (d.from === uid) return "You undid" + amtBit + " to " + nameOf(d.to, "them");
+          return "You undid" + amtBit + " from " + payer;
+        }
+        if (d.to === uid && d.from === row.actor_id) return actor + " undid" + amtBit + " to you";
+        return actor + " undid" + amtBit + " from " + payer;
+      }
       case "member_joined":
         return actor + " joined the room";
       case "member_left":
@@ -317,21 +339,50 @@
               ? `<span class="activity-impact ${imp.cls}"><span class="impact-amt">${escapeHtml(imp.amt)}</span>${imp.label ? `<span class="impact-lbl">${escapeHtml(imp.label)}</span>` : ""}</span>`
               : "";
             const thumb = row._proofUrl ? MB.proofThumbHtml(row._proofUrl, "Payment screenshot") : "";
-            const cls = "list-item activity-item" + (typ === "member" ? " is-member" : "") + (hasImp ? "" : " is-neutral");
-            return `<a class="${cls}" href="${escapeHtml(href)}">
+            const sett = row._settlement;
+            const canUndo = !!(sett && MB.canUndoSettlement && MB.canUndoSettlement(sett, MB.uid(), roomOf(sett.room_id || row.room_id)));
+            const showUndo = canUndo && (
+              row.action === "settlement_confirmed" ||
+              (row.action === "settlement_recorded" && sett.status === "confirmed" && !items.some((r) => r.action === "settlement_confirmed" && r.target_id === sett.id))
+            );
+            const undo = showUndo
+              ? `<div class="btn-row compact"><button type="button" class="text-btn is-danger" data-undo="${escapeHtml(sett.id)}">Undo</button></div>`
+              : "";
+            const cls = "list-item activity-item" + (typ === "member" ? " is-member" : "") + (hasImp ? "" : " is-neutral") + (showUndo ? " has-undo" : "");
+            return `<div class="${cls}" data-href="${escapeHtml(href)}">
               ${media(row)}
               <div class="activity-copy">
-                <div class="item-title">${escapeHtml(sentence(row))}</div>
-                <div class="item-sub">${escapeHtml(subline(row))}</div>
+                <a class="activity-main" href="${escapeHtml(href)}">
+                  <div class="item-title">${escapeHtml(sentence(row))}</div>
+                  <div class="item-sub">${escapeHtml(subline(row))}</div>
+                </a>
                 ${thumb}
+                ${undo}
               </div>
               ${chip}
-            </a>`;
+            </div>`;
           }).join("")}
         </div>
       </section>`).join("");
     $("activity-more-wrap").hidden = !hasMore;
     if (MB.bindProofLightbox) MB.bindProofLightbox(host);
+    host.querySelectorAll("[data-undo]").forEach((btn) => {
+      btn.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const id = btn.getAttribute("data-undo");
+        const row = items.find((r) => r._settlement && r._settlement.id === id);
+        const sett = row && row._settlement;
+        if (!sett || !MB.promptUndoSettlement) return;
+        const members = [...people.values()];
+        try {
+          const ok = await MB.promptUndoSettlement(sett, members);
+          if (ok) reload();
+        } catch (err) {
+          if (MB.showToast) MB.showToast(MB.errorMessage(err), "error");
+        }
+      });
+    });
   }
 
   function paintFilters() {
@@ -407,10 +458,15 @@
       });
       const settleIds = [...new Set(batch.filter((r) => r.target_type === "settlement" && r.target_id).map((r) => r.target_id))];
       if (settleIds.length) {
-        const { data: settles } = await MB.client().from("settlements").select("id, proof_path").in("id", settleIds);
-        const pathById = new Map((settles || []).map((s) => [s.id, s.proof_path]));
+        const { data: settles } = await MB.client().from("settlements").select("id, room_id, from_user, to_user, amount, status, confirmed_at, voided_at, voided_by, proof_path, created_at").in("id", settleIds);
+        const settById = new Map((settles || []).map((s) => [s.id, s]));
+        batch.forEach((r) => {
+          if (r.target_type === "settlement" && r.target_id && settById.has(r.target_id)) {
+            r._settlement = settById.get(r.target_id);
+          }
+        });
         await Promise.all(batch.map(async (r) => {
-          const path = (detail(r) && detail(r).proof_path) || pathById.get(r.target_id);
+          const path = (detail(r) && detail(r).proof_path) || (r._settlement && r._settlement.proof_path);
           if (!path) return;
           try { r._proofUrl = await MB.signedReceiptUrl(path); } catch (e) { r._proofUrl = ""; }
         }));

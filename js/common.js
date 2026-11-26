@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=31";
+  const MANIFEST_HREF = "manifest.json?v=32";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -578,6 +578,7 @@
     };
     const settlementConfirmed = (s) => {
       const st = String(s && s.status || "").toLowerCase();
+      if (st === "voided" || st === "void" || (s && s.voided_at)) return false;
       if (st === "pending" || st === "cancelled" || st === "canceled" || st === "declined" || st === "rejected") return false;
       if (st === "confirmed" || st === "received" || st === "completed") return true;
       if (s && s.confirmed_at) return true;
@@ -768,7 +769,7 @@
     const { start, end } = monthBounds(month);
     const [exRes, setRes] = await Promise.all([
       client().from("room_expenses").select("id, room_id, paid_by, created_by, amount, description, category, date, created_at, receipt_path, original_amount, original_currency, fx_rate, tax_amount, tip_amount").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
-      client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, rejected_at, rejected_by, proof_path").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
+      client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, rejected_at, rejected_by, voided_at, voided_by, proof_path").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
     ]);
     if (exRes.error) throw exRes.error;
     if (setRes.error) throw setRes.error;
@@ -1465,14 +1466,17 @@
     root.style.removeProperty("--sheet-vv-top");
   }
 
+  let actionSheetOnClose = null;
   function closeActionSheet() {
-
+    const cb = actionSheetOnClose;
+    actionSheetOnClose = null;
     const el = $("action-sheet");
     if (el) {
       el.remove();
       unbindSheetViewport();
     }
     window.removeEventListener("keydown", onActionSheetKeydown);
+    if (typeof cb === "function") cb();
   }
   function onActionSheetKeydown(e) {
     if (e.key === "Escape") {
@@ -1603,21 +1607,27 @@
   function openActionSheet(opts) {
     opts = opts || {};
     closeActionSheet();
+    actionSheetOnClose = typeof opts.onClose === "function" ? opts.onClose : null;
     const items = (opts.items || []).map((it, i) => {
       if (!it || !it.label) return "";
       return `<button type="button" class="sheet-row${it.danger ? " is-danger" : ""}" data-action-idx="${i}">
         <span class="sheet-label">${escapeHtml(it.label)}</span>
       </button>`;
     }).join("");
+    const message = opts.message
+      ? `<p class="sheet-message" id="action-sheet-desc">${escapeHtml(opts.message)}</p>`
+      : "";
+    const described = message ? ' aria-describedby="action-sheet-desc"' : "";
     const back = document.createElement("div");
     back.className = "sheet-backdrop";
     back.id = "action-sheet";
-    back.innerHTML = `<div class="sheet action-sheet" role="dialog" aria-modal="true" aria-labelledby="action-sheet-title">
+    back.innerHTML = `<div class="sheet action-sheet${opts.confirm ? " is-confirm" : ""}" role="dialog" aria-modal="true" aria-labelledby="action-sheet-title"${described}>
       <header class="sheet-head">
         <p class="sheet-title" id="action-sheet-title">${escapeHtml(opts.title || "Actions")}</p>
         <button type="button" class="sheet-close" id="action-sheet-close" aria-label="Close">${ICONS.close}</button>
       </header>
       <div class="sheet-body">
+        ${message}
         <nav class="sheet-list">${items}</nav>
       </div>
     </div>`;
@@ -1631,6 +1641,7 @@
       btn.addEventListener("click", () => {
         const idx = Number(btn.getAttribute("data-action-idx"));
         const item = (opts.items || [])[idx];
+        actionSheetOnClose = null;
         finish();
         if (item && typeof item.onSelect === "function") item.onSelect();
       });
@@ -1638,6 +1649,64 @@
     window.addEventListener("keydown", onActionSheetKeydown);
     try { (closeBtn || back.querySelector("[data-action-idx]") || back).focus(); } catch (err) { /* ignore */ }
     return back;
+  }
+
+  function confirmAction(opts) {
+    opts = opts || {};
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = (val) => { if (settled) return; settled = true; resolve(!!val); };
+      openActionSheet({
+        title: opts.title || "Are you sure?",
+        message: opts.message || "",
+        confirm: true,
+        onClose: () => done(false),
+        items: [
+          { label: opts.confirmLabel || "Confirm", danger: opts.danger !== false, onSelect: () => done(true) },
+          { label: opts.cancelLabel || "Keep it", onSelect: () => done(false) },
+        ],
+      });
+    });
+  }
+
+  const UNDO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+  function canUndoSettlement(s, uid, roomOrAdmin) {
+    if (!s || !uid) return false;
+    const st = String(s.status || "").toLowerCase();
+    if (st !== "confirmed") return false;
+    const isMgr = typeof roomOrAdmin === "boolean" ? roomOrAdmin : isAdmin(roomOrAdmin);
+    if (s.from_user !== uid && !isMgr) return false;
+    const start = s.confirmed_at || s.created_at || s.date;
+    if (!start) return true;
+    const t = new Date(start).getTime();
+    if (!Number.isFinite(t)) return true;
+    return (Date.now() - t) <= UNDO_WINDOW_MS;
+  }
+
+  async function voidSettlement(id) {
+    const { data, error } = await client().rpc("void_settlement", { p_settlement_id: id });
+    if (error) throw error;
+    return data;
+  }
+
+  async function promptUndoSettlement(s, members) {
+    if (!s || !s.id) return false;
+    const amt = formatMoney(s.amount);
+    const fromRec = members ? memberRecord(s.from_user, members) : null;
+    const toRec = members ? memberRecord(s.to_user, members) : null;
+    const fromName = firstName((fromRec && (fromRec.display_name || fromRec.name)) || "a roommate");
+    const toName = firstName((toRec && (toRec.display_name || toRec.name)) || "a roommate");
+    const ok = await confirmAction({
+      title: "Undo this payment?",
+      message: "The " + amt + " payment from " + fromName + " to " + toName + " will no longer count toward balances.",
+      confirmLabel: "Undo payment",
+      cancelLabel: "Keep it",
+      danger: true,
+    });
+    if (!ok) return false;
+    await voidSettlement(s.id);
+    showToast("Payment undone", "ok");
+    return true;
   }
 
   function showPageError(message) {
@@ -2844,7 +2913,7 @@
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
     memberBalances, settleSuggestions, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet,
+    friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet, confirmAction, canUndoSettlement, voidSettlement, promptUndoSettlement,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, pendingWithExpense, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,

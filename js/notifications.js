@@ -69,7 +69,8 @@
     if (person) return person;
     const sett = matchSettlement(n, settlements);
     if (sett) {
-      const sid = n.type === "settlement_recorded" ? sett.from_user : (sett.to_user || sett.confirmed_by);
+      const sid = n.type === "settlement_recorded" ? sett.from_user
+        : (n.type === "settlement_voided" ? (sett.voided_by || n.actor_id) : (sett.to_user || sett.confirmed_by));
       person = memberById(members, sid);
     }
     return person || { id: id || "", display_name: "Roommate" };
@@ -86,7 +87,7 @@
     const list = (settlements || []).filter((s) => {
       if (amount != null && Math.abs(Number(s.amount) - amount) > 0.02) return false;
       if (n.type === "settlement_recorded" && s.to_user && MB.uid && s.to_user !== MB.uid()) return false;
-      if ((n.type === "settlement_confirmed" || n.type === "settlement_rejected") && s.from_user && MB.uid && s.from_user !== MB.uid()) return false;
+      if ((n.type === "settlement_confirmed" || n.type === "settlement_rejected" || n.type === "settlement_voided") && s.from_user && MB.uid && s.from_user !== MB.uid() && s.to_user !== MB.uid()) return false;
       if (!t || !s.created_at) return true;
       const st = new Date(s.created_at).getTime();
       const ct = s.confirmed_at ? new Date(s.confirmed_at).getTime() : st;
@@ -157,7 +158,11 @@
 
     if (type === "settlement_recorded") {
       const status = sett ? sett.status : "pending";
-      if (status === "confirmed") {
+      if (status === "voided") {
+        title = "You confirmed " + money(amount) + " from " + fromName;
+        sub = "This payment was later undone.";
+        state = "voided";
+      } else if (status === "confirmed") {
         title = "You confirmed " + money(amount) + " from " + fromName;
         sub = "It counts toward balances.";
         state = "confirmed";
@@ -177,12 +182,27 @@
       }
       href = sett ? ("settle.html?sid=" + encodeURIComponent(sett.id)) : (n.link || "settle.html");
     } else if (type === "settlement_confirmed") {
-      title = actorName + " confirmed " + money(amount);
-      sub = "It now counts toward balances.";
+      if (sett && sett.status === "voided") {
+        title = actorName + " confirmed " + money(amount);
+        sub = "This payment was later undone.";
+        state = "voided";
+      } else {
+        title = actorName + " confirmed " + money(amount);
+        sub = "It now counts toward balances.";
+      }
       href = n.link || "settle.html";
     } else if (type === "settlement_rejected") {
       title = actorName + " says the payment of " + money(amount) + " was not received";
       sub = "You can mark it paid again if you still sent it.";
+      href = n.link || "settle.html";
+    } else if (type === "settlement_voided") {
+      if (sett && sett.to_user === uid && sett.from_user === actor.id) {
+        title = actorName + " undid the " + money(amount) + " payment to you";
+      } else {
+        title = actorName + " undid the " + money(amount) + " payment from " + fromName;
+      }
+      sub = "It no longer counts toward balances.";
+      state = "voided";
       href = n.link || "settle.html";
     } else if (type === "share_request") {
       const total = expense ? Number(expense.amount) : (payload.amount != null ? Number(payload.amount) : null);
@@ -286,7 +306,7 @@
     if (ctx.room) {
       try {
         const [setRes, exRes] = await Promise.all([
-          MB.client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, rejected_at, rejected_by, proof_path").eq("room_id", ctx.room.id).order("created_at", { ascending: false }).limit(120),
+          MB.client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, rejected_at, rejected_by, voided_at, voided_by, proof_path").eq("room_id", ctx.room.id).order("created_at", { ascending: false }).limit(120),
           MB.client().from("room_expenses").select("id, room_id, paid_by, created_by, amount, description, category, date, created_at").eq("room_id", ctx.room.id).order("created_at", { ascending: false }).limit(120),
         ]);
         if (!setRes.error && setRes.data) settlements = setRes.data;

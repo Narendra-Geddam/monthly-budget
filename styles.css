@@ -384,6 +384,7 @@ html[data-theme="light"] .primary-btn:hover { color: var(--on-accent); backgroun
 .danger-btn { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .danger-btn.ghost { background: var(--icon); color: var(--danger); border-color: transparent; }
 .text-btn { background: transparent; border-color: transparent; color: var(--accent); font-weight: 700; }
+.text-btn.is-danger { color: var(--owe); }
 .btn-row { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .btn-row .primary-btn, .btn-row .secondary-btn, .btn-row .danger-btn { flex: 1 1 160px; min-width: min(100%, 160px); }
 .quick-actions {
@@ -2006,6 +2007,20 @@ html[data-theme="light"] .sheet-row .sheet-icon.is-mint {
 .sheet-row.is-danger:hover { background: var(--danger-soft); }
 .action-sheet { max-height: min(70dvh, var(--sheet-vvh, 100dvh), 480px); }
 .action-sheet .sheet-list { margin-bottom: 4px; }
+.action-sheet.is-confirm .sheet-title {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.sheet-message {
+  margin: 0 4px 14px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+  font-weight: 500;
+}
 .action-sheet.cat-sheet {
   max-height: min(88dvh, var(--sheet-vvh, 100dvh), 720px);
 }
@@ -2040,6 +2055,14 @@ html:not([data-theme="light"]) .seg-btn.is-active {
 .activity-feed .activity-item:last-child,
 .activity-item:last-child { border-bottom: 0; }
 .activity-copy { min-width: 0; overflow: hidden; }
+.activity-item .activity-main {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  min-width: 0;
+}
+.activity-item .activity-main:hover { text-decoration: none; }
+.activity-item.has-undo { cursor: default; }
 .activity-feed .activity-item .item-title,
 .activity-item .item-title {
   display: -webkit-box !important;
