@@ -10,7 +10,10 @@
     const balances = MB.memberBalances(members, expenses, splits, settlements);
     const mine = balances.find((b) => b.id === ctx.uid) || { paidAmt: 0, shareAmt: 0, netAmt: 0 };
     const net = netLabel(mine.netAmt);
-    $("stat-paid").textContent = formatMoney(mine.paidAmt);
+    const viewerPaid = (expenses || []).reduce((sum, e) => (
+      e && e.paid_by === ctx.uid ? sum + Number(e.amount || 0) : sum
+    ), 0);
+    $("stat-paid").textContent = formatMoney(viewerPaid);
     $("stat-share").textContent = formatMoney(mine.shareAmt);
     const cap = MB.shareStatCaption ? MB.shareStatCaption(mine.netAmt) : { label: net.text, value: formatMoney(Math.abs(mine.netAmt)), cls: net.cls };
     const netLabelEl = $("stat-net-label");

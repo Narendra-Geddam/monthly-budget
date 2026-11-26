@@ -315,54 +315,6 @@
     });
   }
 
-  function renderGroupCards(ctx) {
-    const rooms = ((ctx.rooms || []).filter((r) => r && !r.archived_at));
-    if (!rooms.length) return;
-    let host = $("group-cards");
-    if (!host) {
-      host = document.createElement("section");
-      host.id = "group-cards";
-      host.className = "group-cards";
-      host.setAttribute("aria-label", "Your groups");
-      const content = $("dash-content");
-      const hero = $("hero-status");
-      if (content && hero) content.insertBefore(host, hero.nextSibling);
-      else if (content) content.insertBefore(host, content.firstChild);
-    }
-    host.hidden = false;
-    const active = ctx.room && ctx.room.id;
-    host.innerHTML = `<header class="card-head"><div><h2>Your groups</h2><p class="card-sub">Balances for this month, or the whole trip.</p></div></header>
-      <div class="group-card-list">
-        ${rooms.map((r) => {
-          const meta = MB.roomTypeMeta ? MB.roomTypeMeta(r.type) : { emoji: "", label: "" };
-          const net = MB.groupNetLabel ? MB.groupNetLabel(r.net) : MB.netLabel(Number(r.net) || 0);
-          const range = MB.isTripRoom && MB.isTripRoom(r) && MB.formatDateRange ? MB.formatDateRange(r.start_date, r.end_date) : "";
-          const current = r.id === active;
-          return `<button type="button" class="group-card${current ? " is-current" : ""}" data-group-id="${escapeHtml(r.id)}">
-            <span class="group-card-emoji" aria-hidden="true">${meta.emoji}</span>
-            <span class="group-card-copy">
-              <span class="group-card-name">${escapeHtml(r.name || "Group")}</span>
-              <span class="group-card-sub">${escapeHtml([meta.label, range, current ? "Current" : ""].filter(Boolean).join(" · "))}</span>
-            </span>
-            <span class="group-card-net ${net.cls}">${escapeHtml(net.text)}</span>
-          </button>`;
-        }).join("")}
-      </div>`;
-    host.querySelectorAll("[data-group-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-group-id");
-        if (!id || id === active) {
-          if (MB.openGroupSwitcher) MB.openGroupSwitcher(rooms);
-          return;
-        }
-        MB.setActiveRoomId(id);
-        const room = rooms.find((r) => r.id === id);
-        if (room && MB.rememberRoomMeta) {}
-        location.reload();
-      });
-    });
-  }
-
   async function main() {
     const ctx = await MB.bootApp({ title: "This month", month: true });
     if (!ctx) return;
@@ -373,7 +325,6 @@
       location.reload();
       return;
     }
-    renderGroupCards(ctx);
     const members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     bindDashInvite(ctx, members);
     const packed = (ctx.expenses && ctx.splits) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
@@ -408,6 +359,11 @@
         const note = MB.balanceFootnote(mine);
         heroNote.hidden = !note;
         heroNote.textContent = note || "";
+      }
+      const settle = $("hero-settle");
+      if (settle) {
+        const settled = hero.direction === "settled" || hero.cls === "is-settled";
+        settle.className = settled ? "text-btn hero-settle-link" : "primary-btn";
       }
       const remind = $("hero-remind");
       if (remind) {
@@ -445,7 +401,11 @@
       if (fill) { fill.style.width = Math.min(100, pct) + "%"; fill.className = toneClass(pct); }
     }
     if ($("stat-room")) $("stat-room").textContent = formatMoney(roomTotal);
-    $("stat-paid").textContent = formatMoney(mine.paidAmt);
+    // Paid tile is always what the viewer personally fronted, not roommates' bills.
+    const viewerPaid = (expenses || []).reduce((sum, e) => (
+      e && e.paid_by === ctx.uid ? sum + Number(e.amount || 0) : sum
+    ), 0);
+    $("stat-paid").textContent = formatMoney(viewerPaid);
     $("stat-share").textContent = formatMoney(mine.shareAmt);
     const cap = MB.shareStatCaption ? MB.shareStatCaption(mine.netAmt) : { label: net.text, value: formatMoney(Math.abs(mine.netAmt)), cls: net.cls };
     const netLabelEl = $("stat-net-label");
@@ -469,7 +429,7 @@
       const e = expenses.find((x) => x.id === s.expense_id);
       if (!e) return "";
       return MB.expenseRowHtml(e, { members, splits: [s] });
-    }).join("") : MB.emptyState({ art: "images/illu-handshake.webp", title: "No accepted shares yet", text: "When you accept your part of a bill, it will show up here.", href: "add-expense.html", cta: "Add an expense" });
+    }).join("") : `<p class="empty-quiet">No accepted shares yet. They show up here after you accept your part of a bill.</p>`;
 
     const recent = (expenses || []).filter((e) => e && e.id).slice(0, 6);
     $("recent-list").innerHTML = recent.length

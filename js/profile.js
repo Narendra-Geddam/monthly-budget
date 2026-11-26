@@ -33,6 +33,10 @@
     });
     const roomsRow = $("row-rooms");
     if (roomsRow && ctx.rooms && !ctx.rooms.length && !inRoom) roomsRow.querySelector(".row-sub").textContent = "Join or create a room";
+    const switchRow = $("row-switch-group");
+    if (switchRow) switchRow.addEventListener("click", () => {
+      if (MB.openGroupSwitcher) MB.openGroupSwitcher(ctx.rooms);
+    });
     $("profile-phone").value = ctx.profile.phone || "";
     $("profile-upi").value = ctx.profile.upi_id || "";
     $("profile-currency").innerHTML = MB.CURRENCIES.map((c) => `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join("");

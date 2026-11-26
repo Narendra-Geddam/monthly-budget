@@ -25,7 +25,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Dashboard · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=33" />
+  <link rel="manifest" href="manifest.json?v=35" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -46,7 +46,7 @@
         <p class="card-sub" id="hero-sub">This is what you need to pay, or what is coming back to you, after accepted shares.</p>
         <p class="hero-note" id="hero-note" hidden></p>
         <div class="btn-row" id="hero-actions">
-          <a class="primary-btn" href="settle.html">Settle up</a>
+          <a class="text-btn hero-settle-link" id="hero-settle" href="settle.html">Settle up</a>
           <a class="forest-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind</a>
         </div>
       </section>
@@ -125,7 +125,7 @@
           <a class="see-all" href="my-share.html">See all</a>
         </header>
         <section class="summary-grid mine" aria-label="My totals">
-          <article class="stat is-paid"><p class="label">Paid</p><p class="value" id="stat-paid">₹0</p></article>
+          <article class="stat is-paid"><p class="label">You paid</p><p class="value" id="stat-paid">₹0</p></article>
           <article class="stat is-share"><p class="label">Share</p><p class="value" id="stat-share">₹0</p></article>
           <article class="stat" id="stat-net-card"><p class="label" id="stat-net-label">Balance</p><p class="value" id="stat-net">Settled up</p></article>
         </section>
@@ -133,12 +133,6 @@
         <h3 style="margin:16px 0 8px">Accepted shares</h3>
         <div class="list" id="my-accepted-list"></div>
       </section>
-      <nav class="quick-actions" aria-label="Quick actions">
-        <a class="primary-btn" href="add-expense.html">Add expense</a>
-        <a class="outline-btn" href="my-share.html">My share</a>
-        <a class="forest-btn" href="settle.html">Settle up</a>
-        <button type="button" class="secondary-btn" id="dash-invite">Invite</button>
-      </nav>
       <div class="charts-grid">
         <section class="card is-outline">
           <header class="card-head"><div><h3>Spending by category</h3><p class="card-sub">Where the room's money went this month.</p></div></header>

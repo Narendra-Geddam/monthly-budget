@@ -282,6 +282,7 @@
     list: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     plus: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     share: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="8" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="17" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.7 10.5 13.3 8.5M10.7 13.5 13.3 15.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 7h11M16 4l3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 17H5M8 14l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     more: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg>',
     kebab: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="6" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="18" r="1.7" fill="currentColor"/></svg>',
     sun: '<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
@@ -1168,15 +1169,16 @@
       ? " · was " + expense.original_amount + " " + expense.original_currency
       : "";
     const title = expense.description || "Expense";
-    const subKind = minePaid ? "Paid" : "From " + displayName(expense.paid_by, members);
+    const payerName = firstName(displayName(expense.paid_by, members) || payer.display_name || payer.name);
+    const subKind = minePaid ? "You paid" : payerName + " paid";
     return `<a class="list-item expense-row" href="${escapeHtml(href)}">
-      <span class="tx-icon ${minePaid ? "is-out" : "is-in"}" aria-hidden="true">${minePaid ? ICONS.arrowOut : ICONS.arrowIn}</span>
-      <div>
-        <div class="item-title">${personChip(payer, members, "sm")}<span>${escapeHtml(title)}${escapeHtml(fx)}</span></div>
+      ${avatarHtml(payer, "md")}
+      <div class="expense-copy">
+        <div class="item-title">${escapeHtml(title)}${escapeHtml(fx)}</div>
         <div class="item-sub">${escapeHtml(subKind)} · ${escapeHtml(friendlyDate(expense.date))}${escapeHtml(shareBit)}</div>
         ${receipt}
       </div>
-      <div class="item-amt ${minePaid ? "" : "pos"}">${minePaid ? "" : "+"}${escapeHtml(formatMoney(expense.amount))}</div>
+      <div class="item-amt">${escapeHtml(formatMoney(expense.amount))}</div>
     </a>`;
   }
   function renderOnboardingTip(host) {
@@ -1185,24 +1187,17 @@
     try { dismissed = localStorage.getItem("mb-onboard-tips") === "1"; } catch (e) { dismissed = false; }
     if (dismissed) { host.hidden = true; host.innerHTML = ""; return; }
     host.hidden = false;
+    host.classList.add("onboard-tip", "is-compact");
     host.innerHTML = `
-      <header class="card-head">
-        <div>
-          <h2>A quick look around</h2>
-          <p class="card-sub">The big line at the top is your bottom line. Rose means you need to pay someone; lime means money is coming back to you.</p>
-        </div>
-      </header>
-      <ul class="tip-list">
-        <li>Your share is the part of each bill that belongs to you, once you accept it.</li>
-        <li>Settle up when you pay or get paid, so balances go back to zero.</li>
-        <li>Someone in the room can mark a share as accepted if a roommate does not respond.</li>
-      </ul>
-      <button type="button" class="secondary-btn" id="dismiss-tips">Got it</button>`;
-    const btn = host.querySelector("#dismiss-tips");
-    if (btn) btn.addEventListener("click", () => {
+      <p class="onboard-tip-text">The top line is your balance. Your share counts after you accept it.</p>
+      <button type="button" class="text-btn onboard-tip-ok" id="dismiss-tips">Got it</button>
+      <button type="button" class="promo-close" id="dismiss-tips-x" aria-label="Dismiss">${ICONS.close}</button>`;
+    const hide = () => {
       try { localStorage.setItem("mb-onboard-tips", "1"); } catch (e) { /* ignore */ }
       host.hidden = true;
-    });
+      host.innerHTML = "";
+    };
+    host.querySelectorAll("#dismiss-tips, #dismiss-tips-x").forEach((btn) => btn.addEventListener("click", hide));
   }
 
   async function loadPendingRequests(roomId) {
@@ -1322,14 +1317,11 @@
           <a class="brand-logo-link" href="dashboard.html" title="Home">
             <img class="brand-logo" src="${withBase("favicon.svg?v=22")}" width="32" height="32" alt="" />
           </a>
-          <button type="button" class="group-switch" id="group-switch" aria-haspopup="dialog" aria-label="Switch group">
+          <p class="brand-text" id="group-current">
             <span class="group-switch-emoji" id="group-switch-emoji" hidden></span>
-            <span class="brand-text">
-              <p class="brand-kicker" id="group-switch-kicker">Monthly Budget</p>
-              <span id="room-name" class="room-name">Monthly Budget</span>
-            </span>
-            <span class="group-switch-caret" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          </button>
+            <span id="room-name" class="room-name">Monthly Budget</span>
+          </p>
+          <button type="button" class="icon-btn group-switch-btn" id="group-switch" aria-haspopup="dialog" aria-label="Switch group" title="Switch group">${ICONS.swap}</button>
         </div>
         <nav class="desktop-nav" aria-label="Main">
           ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses" && p.id !== "add").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
@@ -1655,6 +1647,13 @@
       <span class="sheet-chevron" aria-hidden="true">${ICONS.chevron}</span>
     </a>`;
   }
+  function moreAction(id, icon, label, tint) {
+    return `<button type="button" class="sheet-row" id="${id}">
+      <span class="sheet-icon ${tint || "is-lime"}" aria-hidden="true">${icon}</span>
+      <span class="sheet-label">${label}</span>
+      <span class="sheet-chevron" aria-hidden="true">${ICONS.chevron}</span>
+    </button>`;
+  }
   function moreSection(title, rows) {
     return `<section class="sheet-section">
       <h3 class="sheet-section-label">${title}</h3>
@@ -1700,6 +1699,7 @@
           moreRow("expenses.html", ICONS.list, "All expenses", null, "is-lime"),
         ].join(""))}
         ${moreSection("Room", [
+          moreAction("more-switch-group", ICONS.swap, "Switch group", "is-lime"),
           moreRow("members.html", ICONS.users, "Members", null, "is-forest"),
           moreRow("room.html", ICONS.home, "Room &amp; invite", null, "is-lime"),
           moreRow("room-settings.html", ICONS.gear, "Room settings", null, "is-mint"),
@@ -1714,6 +1714,8 @@
     document.body.appendChild(back);
     bindSheetViewport();
     document.body.classList.add("more-sheet-open");
+    const switchBtn = $("more-switch-group");
+    if (switchBtn) switchBtn.addEventListener("click", () => openGroupSwitcher(lastGroupRooms));
     setPendingBadge(pendingCount);
     loadUnreadCount().then(setNotifBadge).catch(() => {});
     const closeBtn = $("sheet-close");

@@ -7,13 +7,28 @@
     if (!ctx) return;
     const rooms = ctx.rooms;
     if (ctx.room) {
-      $("room-name").textContent = ctx.room.name;
+      const current = $("current-room");
+      if (current) current.hidden = false;
+      const heading = $("room-heading");
+      if (heading) {
+        const meta = MB.roomTypeMeta ? MB.roomTypeMeta(ctx.room.type) : { emoji: "" };
+        const emoji = meta && meta.emoji ? `<span class="group-switch-emoji" aria-hidden="true">${meta.emoji}</span>` : "";
+        heading.innerHTML = `${emoji}<span>${escapeHtml(ctx.room.name || "Group")}</span>`;
+      }
       $("room-code").textContent = ctx.room.code;
       const members = await MB.loadMembers(ctx.room.id);
-      $("member-list").innerHTML = members.map((m) => `<div class="list-item">
-        <div><div class="item-title">${MB.personChip(m, members, "md")}${m.id === ctx.uid ? " (you)" : ""}</div>
-        <div class="item-sub">${m.role === "owner" ? escapeHtml(MB.roleLabel(m.role)) : ""}</div></div>
-      </div>`).join("");
+      $("member-list").innerHTML = members.map((m) => {
+        const name = (m.display_name || MB.displayName(m.id, members) || "Member");
+        const you = m.id === ctx.uid ? " (you)" : "";
+        const role = m.role === "owner" ? escapeHtml(MB.roleLabel(m.role)) : "";
+        return `<div class="member-row">
+          ${MB.avatarHtml(m, "md")}
+          <div class="member-copy">
+            <p class="member-name">${escapeHtml(name)}${you}</p>
+            ${role ? `<p class="member-role">${role}</p>` : ""}
+          </div>
+        </div>`;
+      }).join("");
       $("copy-code").addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(ctx.room.code);
@@ -23,34 +38,42 @@
       });
       const owner = members.find((m) => m.role === "owner");
       const inviter = (owner && owner.display_name) || (ctx.profile && ctx.profile.display_name) || "a roommate";
-      $("share-wa").href = MB.whatsappShareHref(ctx.room, inviter);
-      const native = $("share-native");
-      if (native && navigator.share) {
-        native.hidden = false;
-        native.addEventListener("click", () => MB.shareInvite(ctx.room, inviter));
+      const wa = $("share-wa");
+      if (wa) {
+        wa.href = MB.whatsappShareHref(ctx.room, inviter);
+        wa.innerHTML = MB.ICONS && MB.ICONS.wa ? MB.ICONS.wa : "WA";
       }
-      $("copy-msg").addEventListener("click", async () => {
-        const ok = await MB.copyInviteMessage(ctx.room, inviter);
-        $("copy-msg").textContent = ok ? "Copied" : "Copy failed — long-press WhatsApp instead";
-        setTimeout(() => { $("copy-msg").textContent = "Copy message"; }, 1800);
-        if (!ok) MB.showPageError(MB.inviteShareText(ctx.room, inviter));
+      const share = $("share-invite");
+      if (share) {
+        share.addEventListener("click", async () => {
+          const result = await MB.shareInvite(ctx.room, inviter);
+          if (result === "shared" || result === "aborted" || result === "whatsapp") return;
+          const ok = await MB.copyInviteMessage(ctx.room, inviter);
+          share.textContent = ok ? "Copied" : "Share failed";
+          setTimeout(() => { share.textContent = "Share"; }, 1800);
+          if (!ok) MB.showPageError(MB.inviteShareText(ctx.room, inviter));
+        });
+      }
+      const settings = $("room-settings-row");
+      if (settings) {
+        settings.hidden = !ctx.isAdmin;
+        const chev = settings.querySelector(".sheet-chevron");
+        if (chev && MB.ICONS) chev.innerHTML = MB.ICONS.chevron;
+      }
+      document.querySelectorAll("#current-room .link-row .sheet-chevron").forEach((el) => {
+        if (MB.ICONS && !el.innerHTML) el.innerHTML = MB.ICONS.chevron;
       });
-      const row = $("share-wa").parentElement;
-      if (ctx.isAdmin) {
-        const settings = document.createElement("a");
-        settings.className = "secondary-btn";
-        settings.href = "room-settings.html";
-        settings.textContent = "Room settings";
-        row.insertBefore(settings, $("share-wa"));
-      }
-      const activity = document.createElement("a");
-      activity.className = "secondary-btn";
-      activity.href = "activity.html";
-      activity.textContent = "Activity log";
-      row.appendChild(activity);
 
       $("leave-room").addEventListener("click", async () => {
-        if (!confirm("Leave this room? You will lose access to its expenses.")) return;
+        const ok = MB.confirmAction
+          ? await MB.confirmAction({
+              title: "Leave this group?",
+              message: "You will lose access to its expenses.",
+              confirmLabel: "Leave group",
+              cancelLabel: "Stay",
+            })
+          : confirm("Leave this room? You will lose access to its expenses.");
+        if (!ok) return;
         const { error } = await MB.client().rpc("leave_room", { p_room_id: ctx.room.id });
         if (error) return MB.showPageError(errorMessage(error));
         const rest = rooms.filter((r) => r.id !== ctx.room.id);
@@ -58,21 +81,10 @@
         location.href = "dashboard.html";
       });
     } else {
-      $("current-room").hidden = true;
+      const current = $("current-room");
+      if (current) current.hidden = true;
     }
 
-    $("room-switch").innerHTML = rooms.length
-      ? rooms.map((r) => {
-          const meta = MB.roomTypeMeta ? MB.roomTypeMeta(r.type) : { emoji: "" };
-          return `<option value="${escapeHtml(r.id)}" ${r.id === (ctx.room && ctx.room.id) ? "selected" : ""}>${meta.emoji} ${escapeHtml(r.name)}</option>`;
-        }).join("")
-      : `<option>No groups yet</option>`;
-    $("switch-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const id = $("room-switch").value;
-      if (id) MB.setActiveRoomId(id);
-      location.href = "dashboard.html";
-    });
     const typSel = $("new-room-type");
     const dates = $("new-room-dates");
     if (typSel && dates) {
