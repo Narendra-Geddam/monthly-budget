@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Settle up · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=28" />
+  <link rel="manifest" href="manifest.json?v=29" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,19 +37,18 @@
         <header class="card-head">
           <div>
             <h1 class="display-title">Settle up</h1>
-            <p class="card-sub">A simple way to get everyone back to zero this month. A payment counts after the receiver marks it received.</p>
+            <p class="card-sub">You only see transfers that involve you. After you pay, mark it as paid. It counts when the other person confirms they received it.</p>
           </div>
         </header>
-        <div class="pill-row">
-          <a class="primary-btn" href="#pay-form">Send</a>
-          <a class="secondary-btn" href="#suggest-list">Get paid</a>
-        </div>
         <div id="suggest-list"></div>
       </section>
       <section class="card">
         <header class="card-head"><div><h3>Record a payment</h3><p class="card-sub">Log cash, UPI, or a bank transfer that already happened.</p></div></header>
         <form id="pay-form" novalidate>
-          <label class="field"><span>From</span><select id="pay-from" class="select" required></select></label>
+          <label class="field"><span>From</span>
+            <input type="text" id="pay-from-label" value="You" disabled />
+            <input type="hidden" id="pay-from" required />
+          </label>
           <label class="field"><span>To</span><select id="pay-to" class="select" required></select></label>
           <label class="field"><span>Amount</span><input type="number" id="pay-amount" min="0.01" step="0.01" required placeholder="0.00" /></label>
           <label class="field"><span>Date</span><input type="date" id="pay-date" required /></label>
@@ -68,7 +67,7 @@
       </form>
       </section>
       <section class="card">
-        <header class="card-head"><div><h3>Payment history</h3><p class="card-sub">Confirmed and waiting payments for this month.</p></div></header>
+        <header class="card-head"><div><h3>Payment history</h3><p class="card-sub">Your confirmed and waiting payments this month.</p></div></header>
         <div class="list" id="history"></div>
       </section>
     </div>

@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=28";
+  const MANIFEST_HREF = "manifest.json?v=29";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -798,6 +798,38 @@
     return null;
   }
 
+  function myTransfers(balances, userId) {
+    return settleSuggestions(balances || []).filter((t) => t && t.from && t.to && (t.from.id === userId || t.to.id === userId));
+  }
+  function pendingSettlementFor(settlements, fromId, toId, amount) {
+    const list = (settlements || []).filter((s) => s && s.status === "pending" && s.from_user === fromId && s.to_user === toId);
+    if (!list.length) return null;
+    if (amount != null && amount !== "") {
+      const exact = list.find((s) => Math.abs(Number(s.amount) - Number(amount)) < 0.02);
+      if (exact) return exact;
+    }
+    return list[0];
+  }
+  function oweRowHtml(t, userId, members) {
+    if (!t || !t.from || !t.to) return "";
+    const mine = t.from.id === userId;
+    const other = mine ? t.to : t.from;
+    const rec = memberRecord(other.id || other, members);
+    const name = displayName(rec.id || other.id, members) || other.name || other.display_name || "Member";
+    const role = mine ? "you owe" : "owes you";
+    const cls = mine ? "neg" : "pos";
+    return `<div class="suggest">
+      <div class="suggest-who">
+        ${avatarHtml(rec, "sm")}
+        <div class="suggest-copy">
+          <div class="suggest-name">${escapeHtml(name)}</div>
+          <div class="suggest-role">${escapeHtml(role)}</div>
+        </div>
+      </div>
+      <strong class="suggest-amt ${cls}">${escapeHtml(formatMoney(t.amount))}</strong>
+    </div>`;
+  }
+
   function isAdmin(room) {
     const role = room && room.role;
     return role === "owner" || role === "admin";
@@ -1330,6 +1362,7 @@
     </div>`;
     back.addEventListener("click", (e) => { if (e.target === back) closeMoreSheet(); });
     document.body.appendChild(back);
+    bindSheetViewport();
     document.body.classList.add("more-sheet-open");
     setPendingBadge(pendingCount);
     loadUnreadCount().then(setNotifBadge).catch(() => {});
@@ -1347,7 +1380,10 @@
   function closeMoreSheet(opts) {
     opts = opts || {};
     const el = $("more-sheet");
-    if (el) el.remove();
+    if (el) {
+      el.remove();
+      unbindSheetViewport();
+    }
     document.body.classList.remove("more-sheet-open");
     window.removeEventListener("keydown", onMoreKeydown);
     window.removeEventListener("popstate", onMorePopState);
@@ -1359,9 +1395,48 @@
     }
   }
 
+
+  let sheetViewportBound = 0;
+  function syncSheetViewport() {
+    const vv = window.visualViewport;
+    const layoutH = window.innerHeight || document.documentElement.clientHeight || 0;
+    const height = vv && vv.height ? vv.height : layoutH;
+    const offsetTop = vv && vv.offsetTop ? vv.offsetTop : 0;
+    const root = document.documentElement;
+    root.style.setProperty("--sheet-vvh", Math.max(160, Math.round(height)) + "px");
+    root.style.setProperty("--sheet-vv-top", Math.max(0, Math.round(offsetTop)) + "px");
+  }
+  function bindSheetViewport() {
+    sheetViewportBound += 1;
+    syncSheetViewport();
+    if (sheetViewportBound !== 1) return;
+    window.addEventListener("resize", syncSheetViewport);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", syncSheetViewport);
+      window.visualViewport.addEventListener("scroll", syncSheetViewport);
+    }
+  }
+  function unbindSheetViewport() {
+    if (sheetViewportBound <= 0) return;
+    sheetViewportBound -= 1;
+    if (sheetViewportBound > 0) return;
+    window.removeEventListener("resize", syncSheetViewport);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener("resize", syncSheetViewport);
+      window.visualViewport.removeEventListener("scroll", syncSheetViewport);
+    }
+    const root = document.documentElement;
+    root.style.removeProperty("--sheet-vvh");
+    root.style.removeProperty("--sheet-vv-top");
+  }
+
   function closeActionSheet() {
+
     const el = $("action-sheet");
-    if (el) el.remove();
+    if (el) {
+      el.remove();
+      unbindSheetViewport();
+    }
     window.removeEventListener("keydown", onActionSheetKeydown);
   }
   function onActionSheetKeydown(e) {
@@ -1418,6 +1493,7 @@
     const finish = () => closeActionSheet();
     back.addEventListener("click", (e) => { if (e.target === back) finish(); });
     document.body.appendChild(back);
+    bindSheetViewport();
     const closeBtn = $("action-sheet-close");
     if (closeBtn) closeBtn.addEventListener("click", finish);
     const grid = $("cat-sheet-grid");
@@ -1444,12 +1520,11 @@
         });
       });
     };
-    if (search) {
-      search.addEventListener("input", paint);
-      try { search.focus(); } catch (err) { /* ignore */ }
-    }
+    if (search) search.addEventListener("input", paint);
     paint();
     window.addEventListener("keydown", onActionSheetKeydown);
+    // Do not focus the search box: on Android that opens the keyboard and covers the list.
+    try { (closeBtn || back).focus({ preventScroll: true }); } catch (err) { /* ignore */ }
     return back;
   }
   function bindCategoryPicker(selectEl) {
@@ -1514,6 +1589,7 @@
     const finish = () => closeActionSheet();
     back.addEventListener("click", (e) => { if (e.target === back) finish(); });
     document.body.appendChild(back);
+    bindSheetViewport();
     const closeBtn = $("action-sheet-close");
     if (closeBtn) closeBtn.addEventListener("click", finish);
     back.querySelectorAll("[data-action-idx]").forEach((btn) => {
@@ -2559,7 +2635,7 @@
     client, uid, currentPage, configured,
     getActiveRoomId, setActiveRoomId,
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
-    memberBalances, settleSuggestions, displayName, netLabel,
+    memberBalances, settleSuggestions, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
     friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
