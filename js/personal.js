@@ -126,5 +126,5 @@
         <div class="item-amt ${r.type === "income" ? "pos" : "neg"}">${r.type === "income" ? "+" : "−"}${escapeHtml(formatMoney(r.amount))}</div>
       </a>`).join("") : MB.emptyState({ art: "images/illu-piggy.webp", title: "Your money, just for you", text: "Add a private expense or income — roommates will never see these.", href: "add-expense.html?mode=personal", cta: "Add a personal entry" });
   }
-  main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
+  (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

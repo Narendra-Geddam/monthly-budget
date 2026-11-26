@@ -39,7 +39,7 @@
       } else if (iPay && pending) {
         actions = `<p class="transfer-wait">Waiting for ${escapeHtml(otherName)} to confirm</p>`;
       } else if (!iPay && pending) {
-        actions = `<button type="button" class="primary-btn" data-confirm-received="${escapeHtml(pending.id)}">Confirm received</button>`;
+        actions = `<button type="button" class="primary-btn" data-confirm-received="${escapeHtml(pending.id)}">Confirm received</button><button type="button" class="secondary-btn" data-reject-received="${escapeHtml(pending.id)}">Didn't get it</button>`;
       } else {
         actions = `<p class="transfer-wait">Waiting for them to pay</p>`;
       }
@@ -81,15 +81,18 @@
         if ($("pay-proof-hint")) $("pay-proof-hint").textContent = "Optional. Attach a UPI, GPay, or bank screenshot of this payment.";
       });
     });
+    async function respondSettlement(id, accept) {
+      const { error } = await MB.client().rpc(accept ? "confirm_settlement" : "reject_settlement", accept
+        ? { p_settlement_id: id, p_force: false }
+        : { p_settlement_id: id });
+      if (error) return MB.showPageError(errorMessage(error));
+      location.reload();
+    }
     $("suggest-list").querySelectorAll("[data-confirm-received]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const { error } = await MB.client().rpc("confirm_settlement", {
-          p_settlement_id: btn.getAttribute("data-confirm-received"),
-          p_force: false,
-        });
-        if (error) return MB.showPageError(errorMessage(error));
-        location.reload();
-      });
+      btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-confirm-received"), true));
+    });
+    $("suggest-list").querySelectorAll("[data-reject-received]").forEach((btn) => {
+      btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-reject-received"), false));
     });
 
     if ($("pay-from-label")) $("pay-from-label").value = "You";
@@ -176,6 +179,31 @@
           });
           if (upErr) throw upErr;
         }
+        const toMember = members.find((m) => m.id === to);
+        const toName = (toMember && toMember.display_name) || "this roommate";
+        const owedRow = suggestions.find((s) => s.from.id === from && s.to.id === to);
+        const owed = owedRow ? Number(owedRow.amount) : 0;
+        if (owed > 0.005 && amount - owed > 0.5) {
+          const ok = confirm(toName + " is owed " + formatMoney(owed) + ". This payment of " + formatMoney(amount) + " is more than that. Record it anyway?");
+          if (!ok) return;
+        } else if (owed <= 0.005 && amount > 0.5) {
+          const netRow = balances.find((b) => b.id === from);
+          const ok = confirm("There is no open balance to " + toName + " right now. Record a payment of " + formatMoney(amount) + " anyway?");
+          if (!ok) return;
+        }
+        const cutoff = Date.now() - 30 * 60 * 1000;
+        const similar = (settlements || []).filter((s) => {
+          if (s.from_user !== from || s.to_user !== to) return false;
+          if (s.status === "rejected") return false;
+          if (Math.abs(Number(s.amount) - amount) > 1.01) return false;
+          const ts = s.created_at ? new Date(s.created_at).getTime() : 0;
+          return ts && ts >= cutoff;
+        });
+        if (similar.length) {
+          const last = similar[0];
+          const ok = confirm("A similar payment of " + formatMoney(last.amount) + " was already recorded in the last 30 minutes. Record another?");
+          if (!ok) return;
+        }
         const { error } = await MB.client().rpc("record_settlement", {
           p_room_id: ctx.room.id, p_from: from, p_to: to, p_amount: amount, p_date: date, p_note: note || null,
           p_proof_path: proofPath,
@@ -191,11 +219,12 @@
     const mineHistory = (settlements || []).filter((s) => s.from_user === ctx.uid || s.to_user === ctx.uid);
     const historyBits = await Promise.all(mineHistory.map(async (s) => {
       const pending = s.status === "pending";
+      const rejected = s.status === "rejected";
       const canConfirm = pending && s.to_user === ctx.uid;
       const iPaid = s.from_user === ctx.uid;
       const status = pending
         ? (iPaid ? " · waiting for them to confirm" : " · waiting for you to confirm")
-        : " · confirmed";
+        : (rejected ? " · not received" : " · confirmed");
       let thumb = "";
       if (s.proof_path) {
         try {
@@ -212,23 +241,19 @@
           <div class="item-title">${title}</div>
           <div class="item-sub">${escapeHtml(MB.friendlyDate(s.date))}${s.note ? " · " + escapeHtml(s.note) : ""}${status}</div>
           ${thumb}
-          ${canConfirm ? `<button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}">Confirm received</button>` : ""}
+          ${canConfirm ? `<div class="btn-row compact"><button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}">Confirm received</button><button type="button" class="text-btn" data-reject="${escapeHtml(s.id)}">Didn't get it</button></div>` : ""}
         </div>
-        <div class="item-amt ${pending ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
+        <div class="item-amt ${pending || rejected ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
       </div>`;
     }));
     $("history").innerHTML = historyBits.length ? historyBits.join("") : MB.emptyState({ art: "images/illu-house.webp", title: "No payments yet", text: "When you pay a roommate, or someone pays you, the record will show up here." });
     if (MB.bindProofLightbox) MB.bindProofLightbox($("history"));
     $("history").querySelectorAll("[data-confirm]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const { error } = await MB.client().rpc("confirm_settlement", {
-          p_settlement_id: btn.getAttribute("data-confirm"),
-          p_force: false,
-        });
-        if (error) return MB.showPageError(errorMessage(error));
-        location.reload();
-      });
+      btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-confirm"), true));
+    });
+    $("history").querySelectorAll("[data-reject]").forEach((btn) => {
+      btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-reject"), false));
     });
   }
-  main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
+  (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

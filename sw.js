@@ -1,14 +1,24 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v30";
+const SHELL_CACHE = "mb-shell-v31";
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
   "activity.html",
+  "personal.html",
+  "analytics.html",
+  "notifications.html",
+  "add-expense.html",
+  "settle.html",
   "login.html",
   "styles.css",
   "js/common.js",
   "js/dashboard.js",
   "js/activity.js",
+  "js/personal.js",
+  "js/analytics.js",
+  "js/notifications.js",
+  "js/add-expense.js",
+  "js/settle.js",
   "vendor/supabase.min.js",
   "vendor/chart.umd.min.js",
   "config.js",
@@ -43,9 +53,8 @@ function isServiceWorkerFile(pathname) {
   return pathname.endsWith("/sw.js") || pathname.endsWith("sw.js");
 }
 function isNetworkFirst(pathname) {
-  return pathname === "/" || pathname === BASE || pathname === BASE + "/" ||
-    pathname.endsWith(".html") || pathname.endsWith(".js") ||
-    pathname.endsWith("manifest.json");
+  // Shell (HTML/JS/CSS) is served cache-first, then revalidated, to avoid a blank flash on tab switches.
+  return false;
 }
 
 self.addEventListener("install", (event) => {

@@ -171,6 +171,7 @@
       try {
         const { error } = await MB.client().rpc("delete_my_account");
         if (error) throw error;
+        if (MB.clearCachedState) MB.clearCachedState();
         await MB.client().auth.signOut();
         location.replace("login.html");
       } catch (err) {
@@ -180,7 +181,8 @@
     await setupPushCard();
 
     $("logout").addEventListener("click", async () => {
-      await MB.client().auth.signOut();
+      if (MB.clearCachedState) MB.clearCachedState();
+        await MB.client().auth.signOut();
       location.replace("login.html");
     });
   }
@@ -265,5 +267,5 @@
     });
     await refresh();
   }
-  main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
+  (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

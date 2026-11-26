@@ -255,5 +255,5 @@
       URL.revokeObjectURL(a.href);
     });
   }
-  main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
+  (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

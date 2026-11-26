@@ -47,5 +47,5 @@
       </a>`;
     }).join("") : `<p class="empty">No shares this month.</p>`;
   }
-  main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
+  (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

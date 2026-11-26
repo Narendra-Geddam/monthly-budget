@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=30";
+  const MANIFEST_HREF = "manifest.json?v=31";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -327,6 +327,11 @@
   }
   function applyThemeColor(theme) {
     const color = themeChromeColor(theme);
+    try {
+      document.documentElement.style.backgroundColor = color;
+      if (document.body) document.body.style.backgroundColor = color;
+      document.documentElement.style.colorScheme = theme === "light" ? "light" : "dark";
+    } catch (e) { /* ignore */ }
     let meta = document.querySelector('meta[name="theme-color"]:not([media])');
     if (!meta) {
       meta = document.createElement("meta");
@@ -345,6 +350,7 @@
       applyThemeColor(t);
     } catch (e) {
       document.documentElement.setAttribute("data-theme", "dark");
+      try { document.documentElement.style.backgroundColor = THEME_CHROME.dark; } catch (e2) { /* ignore */ }
     }
   }
   applyThemeEarly();
@@ -538,10 +544,13 @@
     try { return localStorage.getItem(ROOM_KEY) || ""; } catch (e) { return ""; }
   }
   function setActiveRoomId(id) {
+    const prev = getActiveRoomId();
+    const next = id || "";
     try {
-      if (id) localStorage.setItem(ROOM_KEY, id);
+      if (next) localStorage.setItem(ROOM_KEY, next);
       else localStorage.removeItem(ROOM_KEY);
     } catch (e) { /* ignore */ }
+    if (prev !== next) clearMemoryAppState();
   }
 
   function equalSplits(amount, userIds) {
@@ -759,7 +768,7 @@
     const { start, end } = monthBounds(month);
     const [exRes, setRes] = await Promise.all([
       client().from("room_expenses").select("id, room_id, paid_by, created_by, amount, description, category, date, created_at, receipt_path, original_amount, original_currency, fx_rate, tax_amount, tip_amount").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
-      client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, proof_path").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
+      client().from("settlements").select("id, room_id, from_user, to_user, amount, date, note, created_by, created_at, status, confirmed_at, confirmed_by, rejected_at, rejected_by, proof_path").eq("room_id", roomId).gte("date", start).lte("date", end).order("date", { ascending: false }),
     ]);
     if (exRes.error) throw exRes.error;
     if (setRes.error) throw setRes.error;
@@ -924,6 +933,33 @@
     const label = d.getDate() + " " + short[d.getMonth()];
     const now = new Date(today + "T00:00:00");
     return d.getFullYear() === now.getFullYear() ? label : label + " " + d.getFullYear();
+  }
+  function firstName(name) {
+    const s = String(name == null ? "" : name).trim();
+    if (!s) return "Someone";
+    const token = s.split(/\s+/)[0];
+    return token || "Someone";
+  }
+  function relativeTime(iso) {
+    if (!iso) return "";
+    const thenDate = new Date(iso);
+    const then = thenDate.getTime();
+    if (!Number.isFinite(then)) return "";
+    const sec = Math.round((Date.now() - then) / 1000);
+    if (sec < 45) return "Just now";
+    if (sec < 90) return "1 min ago";
+    if (sec < 3600) return Math.floor(sec / 60) + " min ago";
+    if (sec < 5400) return "1 hour ago";
+    if (sec < 86400) return Math.floor(sec / 3600) + " hours ago";
+    const time = thenDate.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    const day = localDayKey(thenDate);
+    const today = todayISO();
+    if (day === today) return time;
+    const y = new Date(today + "T00:00:00");
+    y.setDate(y.getDate() - 1);
+    const yest = localDayKey(y);
+    if (day === yest) return "Yesterday " + time;
+    return friendlyDate(day) + " " + time;
   }
   function daysLeftInMonth(key) {
     const end = monthBounds(key || getSelectedMonth()).end;
@@ -1194,7 +1230,7 @@
     return { text: "You owe " + formatMoney(Math.abs(netAmt)), cls: "is-bad" };
   }
 
-  const MORE_PAGES = ["my-share.html", "settle.html", "room.html", "profile.html", "requests.html", "room-settings.html", "expenses.html", "notifications.html", "invite.html", "members.html", "member.html", "analytics.html"];
+  const MORE_PAGES = ["my-share.html", "settle.html", "room.html", "profile.html", "requests.html", "room-settings.html", "expenses.html", "notifications.html", "invite.html", "members.html", "member.html"];
 
   function injectShell(options) {
     const page = currentPage();
@@ -1218,7 +1254,7 @@
           </div>
         </a>
         <nav class="desktop-nav" aria-label="Main">
-          ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
+          ${PAGES.filter((p) => p.id !== "profile" && p.id !== "expenses" && p.id !== "add").map((p) => `<a href="${p.href}" class="${p.href === page || (p.id === "members" && page === "member.html") ? "is-active" : ""}">${escapeHtml(p.label)}${p.id === "requests" ? `<span class="badge" data-pending-badge hidden></span>` : ""}</a>`).join("")}
         </nav>
         <div class="top-actions">
           <a class="top-avatar" href="profile.html" id="header-profile" aria-label="Profile" title="Profile">${avatarHtml({ display_name: (profile && profile.display_name) || "You", avatar_url: profile && profile.avatar_url, id: uid() }, "lg")}</a>
@@ -1234,7 +1270,7 @@
       bottom.className = "bottom-nav";
       const items = [
         { href: "dashboard.html", label: "Home", icon: ICONS.home, id: "dashboard.html" },
-        { href: "add-expense.html", label: "Add", icon: ICONS.plus, id: "add-expense.html" },
+        { href: "analytics.html", label: "Analytics", icon: ICONS.chart, id: "analytics.html" },
         { href: "activity.html", label: "Activity", icon: ICONS.activity, id: "activity.html" },
         { href: "personal.html", label: "Personal", icon: ICONS.wallet, id: "personal.html" },
       ];
@@ -1347,7 +1383,6 @@
           moreRow("settle.html", ICONS.arrowIn, "Settle up", null, "is-forest"),
           moreRow("requests.html", ICONS.list, "Share requests", "data-pending-badge", "is-mint"),
           moreRow("expenses.html", ICONS.list, "All expenses", null, "is-lime"),
-          moreRow("analytics.html", ICONS.chart, "Analytics", null, "is-forest"),
         ].join(""))}
         ${moreSection("Room", [
           moreRow("members.html", ICONS.users, "Members", null, "is-forest"),
@@ -1676,6 +1711,23 @@
     return { sb: client(), session: null };
   }
 
+  async function fetchAppStateData() {
+    const { data, error } = await client().rpc("get_app_state", {
+      p_room_id: getActiveRoomId() || null,
+      p_month: getSelectedMonth(),
+    });
+    if (error) throw error;
+    return data;
+  }
+  function afterBootSession() {
+    try { startNotifWatch(); } catch (err) { console.warn(err); }
+    try {
+      const wanted = localStorage.getItem("mb-push-enabled") === "1";
+      if (wanted && "Notification" in window && Notification.permission === "granted") {
+        ensurePushSubscription().catch(() => {});
+      }
+    } catch (e) { /* ignore */ }
+  }
   async function bootApp(options) {
     options = options || {};
     injectShell(options);
@@ -1698,91 +1750,103 @@
       return null;
     }
     const mainEl = document.getElementById("main");
-    if (mainEl) mainEl.classList.add("is-loading");
-
-    const cachedWrap = readCachedState();
-    const cached = cachedWrap && cachedWrap.state;
-    if (cached && cached.profile && cached.profile.id) {
-      profile = cached.profile;
-      if (profile.currency && CURRENCIES.some((c) => c.code === profile.currency)) currency = profile.currency;
-      paintHeaderAvatar(profile);
-      const rname = $("room-name");
-      const cachedRoom = (cached.rooms || []).find((r) => r.id === (cached.room_id || getActiveRoomId()));
-      if (rname && cachedRoom) rname.textContent = cachedRoom.name;
+    const month = getSelectedMonth();
+    const roomId = getActiveRoomId() || null;
+    const memKey = stateCacheKey(uid(), roomId, month);
+    if (memoryAppState && memoryAppState.key === memKey && memoryAppState.fresh && memoryAppState.data && (Date.now() - memoryAppState.at) < 2000) {
+      const appliedFast = applyAppState(memoryAppState.data);
+      paintBootChrome(appliedFast);
+      if (mainEl) mainEl.classList.remove("is-loading");
+      afterBootSession();
+      return buildAppCtx(appliedFast, { fromCache: false, cachedAt: memoryAppState.at });
     }
 
-    await maybeMarkReadFromQuery();
-    await maybeJoinPendingCode();
+    maybeMarkReadFromQuery().catch(() => {});
+    const pendingJoin = await maybeJoinPendingCode();
+    const useCache = !pendingJoin;
+    const cachedWrap = useCache ? readCachedState(uid(), getActiveRoomId() || roomId, month) : null;
+    const cachedOk = cachedWrap && cacheMatches(cachedWrap, uid(), getActiveRoomId() || roomId, month) && cachedWrap.state && cachedWrap.state.profile;
+    if (cachedOk) {
+      profile = cachedWrap.state.profile;
+      if (profile.currency && CURRENCIES.some((c) => c.code === profile.currency)) currency = profile.currency;
+      const appliedCache = applyAppState(cachedWrap.state);
+      paintBootChrome(appliedCache);
+      if (mainEl) mainEl.classList.remove("is-loading");
+      const age = Date.now() - (cachedWrap.cachedAt || 0);
+      if (age > STALE_AFTER_MS) showUpdating(true);
+      else showUpdating(false);
+      const prevSig = stateSignature(cachedWrap.state);
+      const refresh = (async () => {
+        try {
+          const data = await fetchAppStateData();
+          const applied = applyAppState(data);
+          writeCachedState(data, uid(), applied.room && applied.room.id, month);
+          paintBootChrome(applied);
+          const changed = stateSignature(data) !== prevSig;
+          const ctx = buildAppCtx(applied, { fromCache: false, cachedAt: Date.now() });
+          ctx._changed = changed;
+          try { window.dispatchEvent(new CustomEvent("mb-app-state", { detail: ctx })); } catch (e) { /* ignore */ }
+          return ctx;
+        } catch (err) {
+          console.warn(err);
+          return null;
+        } finally {
+          showUpdating(false);
+        }
+      })();
+      lastWhenFresh = refresh;
+      afterBootSession();
+      return buildAppCtx(appliedCache, { fromCache: true, cachedAt: cachedWrap.cachedAt, whenFresh: refresh });
+    }
 
+    if (mainEl) mainEl.classList.add("is-loading");
     let applied = null;
-    let rooms = [];
-    let room = null;
-    let pending = [];
-    let unread = 0;
     try {
-      const { data, error } = await client().rpc("get_app_state", {
-        p_room_id: getActiveRoomId() || null,
-        p_month: getSelectedMonth(),
-      });
-      if (error) throw error;
+      const data = await fetchAppStateData();
       applied = applyAppState(data);
-      rooms = applied.rooms;
-      room = applied.room;
-      pending = applied.pending || [];
-      unread = applied.unread || 0;
-      writeCachedState(data);
+      writeCachedState(data, uid(), applied.room && applied.room.id, month);
     } catch (err) {
       console.warn(err);
       await loadProfile();
       paintHeaderAvatar(profile);
-      rooms = await loadRooms();
-      room = await resolveActiveRoom(rooms);
+      const rooms = await loadRooms();
+      const room = await resolveActiveRoom(rooms);
+      let pending = [];
+      let unread = 0;
       if (room) {
         try { await client().rpc("generate_recurring_for_month", { p_room_id: room.id, p_month: getSelectedMonth() }); }
         catch (e2) { console.warn(e2); }
         try { pending = await loadPendingRequests(room.id); } catch (e3) { console.warn(e3); }
       }
       try { unread = await loadUnreadCount(); } catch (e4) { console.warn(e4); }
+      applied = { rooms, room, pending, unread, members: [], expenses: [], splits: [], settlements: [] };
     }
-
-    const roomName = $("room-name");
-    if (roomName) roomName.textContent = room ? room.name : "Monthly Budget";
-    const monthBar = $("month-picker") || document.querySelector("main > .month-bar");
-    if (monthBar && !room && !options.keepMonth) monthBar.hidden = true;
-    if (room && room.currency && CURRENCIES.some((c) => c.code === room.currency)) currency = room.currency;
-    setPendingBadge((pending && pending.length) || 0);
-    setNotifBadge(unread || 0);
-    try { startNotifWatch(); } catch (err) { console.warn(err); }
-    paintHeaderAvatar(profile);
+    paintBootChrome(applied);
     if (mainEl) mainEl.classList.remove("is-loading");
+    showUpdating(false);
+    afterBootSession();
+    return buildAppCtx(applied, { fromCache: false, cachedAt: Date.now() });
+  }
+  async function runPage(mainFn, options) {
     try {
-      const wanted = localStorage.getItem("mb-push-enabled") === "1";
-      if (wanted && "Notification" in window && Notification.permission === "granted") {
-        ensurePushSubscription().catch(() => {});
+      if (options) {
+        // Allow runPage({ title }, main) or runPage(main)
       }
-    } catch (e) { /* ignore */ }
-    return {
-      sb: client(),
-      session,
-      profile,
-      rooms,
-      room,
-      month: getSelectedMonth(),
-      uid: uid(),
-      pending,
-      unread,
-      isAdmin: isAdmin(room),
-      isOwner: isOwner(room),
-      members: applied && applied.members,
-      expenses: applied && applied.expenses,
-      splits: applied && applied.splits,
-      settlements: applied && applied.settlements,
-      invites: applied && applied.invites,
-      joinRequests: applied && applied.joinRequests,
-      categoryBudgets: applied && applied.categoryBudgets,
-      presets: applied && applied.presets,
-      spendByMonth: applied && applied.spendByMonth,
-    };
+      const fn = typeof mainFn === "function" ? mainFn : options;
+      const opts = typeof mainFn === "function" ? options : mainFn;
+      if (typeof fn !== "function") return;
+      // Pages call bootApp themselves. First run may use cache; refresh then reruns.
+      await fn();
+      const pending = lastWhenFresh;
+      lastWhenFresh = null;
+      if (pending) {
+        const next = await pending;
+        if (next && next._changed) await fn();
+      }
+    } catch (err) {
+      console.error(err);
+      showPageError(errorMessage(err));
+    }
   }
 
 
@@ -2048,15 +2112,152 @@
   }
 
 
+  const STATE_KEY_PREFIX = "monthly-budget-app-state:";
   const STATE_KEY = "monthly-budget-app-state";
+  const STALE_AFTER_MS = 3 * 60 * 1000;
+  let memoryAppState = null;
+  let lastWhenFresh = null;
   const EYE_ON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
   const EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 3l18 18M10.5 10.7A3 3 0 0 0 13.3 13.5M9.9 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-4.2 4.8M6.7 6.7C3.9 8.6 2 12 2 12a18 18 0 0 0 6.1 5.9C9.3 18.6 10.6 19 12 19c.6 0 1.1 0 1.7-.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
-  function readCachedState() {
-    try { return JSON.parse(localStorage.getItem(STATE_KEY) || "null"); } catch (e) { return null; }
+  function stateCacheKey(userId, roomId, month) {
+    return STATE_KEY_PREFIX + (userId || "anon") + ":" + (roomId || "none") + ":" + (month || "");
   }
-  function writeCachedState(state) {
-    try { localStorage.setItem(STATE_KEY, JSON.stringify({ state: state, cachedAt: Date.now() })); } catch (e) { /* ignore */ }
+  function clearMemoryAppState() {
+    memoryAppState = null;
+    lastWhenFresh = null;
+  }
+  function readCachedState(userId, roomId, month) {
+    const uidVal = userId || uid() || "";
+    const roomVal = roomId || getActiveRoomId() || "";
+    const monthVal = month || getSelectedMonth();
+    const keys = [];
+    if (uidVal) keys.push(stateCacheKey(uidVal, roomVal, monthVal));
+    keys.push(STATE_KEY);
+    for (let i = 0; i < keys.length; i++) {
+      try {
+        const wrap = JSON.parse(localStorage.getItem(keys[i]) || "null");
+        if (wrap && wrap.state) return wrap;
+      } catch (e) { /* try next */ }
+    }
+    return null;
+  }
+  function writeCachedState(state, userId, roomId, month) {
+    const wrap = { state: state, cachedAt: Date.now(), userId: userId || uid() || "", roomId: roomId || (state && state.room_id) || getActiveRoomId() || "", month: month || getSelectedMonth() };
+    const key = stateCacheKey(wrap.userId, wrap.roomId, wrap.month);
+    const payload = JSON.stringify(wrap);
+    try {
+      localStorage.setItem(key, payload);
+      try { localStorage.removeItem(STATE_KEY); } catch (e2) { /* ignore */ }
+      memoryAppState = { key, data: state, at: wrap.cachedAt, fresh: true };
+    } catch (e) {
+      tryWriteStateIdb(key, payload);
+    }
+  }
+  function tryWriteStateIdb(key, payload) {
+    try {
+      if (!("indexedDB" in window)) return;
+      const req = indexedDB.open("monthly-budget", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("app-state")) db.createObjectStore("app-state");
+      };
+      req.onsuccess = () => {
+        try {
+          const db = req.result;
+          const tx = db.transaction("app-state", "readwrite");
+          tx.objectStore("app-state").put(payload, key);
+        } catch (e) { /* ignore */ }
+      };
+    } catch (e) { /* ignore */ }
+  }
+  function clearCachedState() {
+    clearMemoryAppState();
+    try {
+      const drop = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k === STATE_KEY || k.indexOf(STATE_KEY_PREFIX) === 0)) drop.push(k);
+      }
+      drop.forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* ignore */ }
+    try {
+      if ("indexedDB" in window) indexedDB.deleteDatabase("monthly-budget");
+    } catch (e) { /* ignore */ }
+  }
+  function showUpdating(show) {
+    let el = document.getElementById("mb-updating");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "mb-updating";
+      el.className = "mb-updating";
+      el.setAttribute("role", "status");
+      el.textContent = "Updating…";
+      const chrome = document.querySelector(".app-chrome") || document.getElementById("topbar") || document.body;
+      if (chrome && chrome.parentNode && chrome !== document.body) chrome.parentNode.insertBefore(el, chrome.nextSibling);
+      else document.body.insertBefore(el, document.body.firstChild);
+    }
+    el.hidden = !show;
+  }
+  function cacheMatches(wrap, userId, roomId, month) {
+    if (!wrap || !wrap.state) return false;
+    const st = wrap.state;
+    if (userId && st.profile && st.profile.id && st.profile.id !== userId) return false;
+    if (roomId && st.room_id && st.room_id !== roomId) return false;
+    return true;
+  }
+  function stateSignature(data) {
+    if (!data) return "";
+    try {
+      return JSON.stringify({
+        room_id: data.room_id, unread: data.unread,
+        expenses: data.expenses, splits: data.splits, settlements: data.settlements,
+        pending: data.pending, members: data.members, invites: data.invites,
+        join_requests: data.join_requests,
+      });
+    } catch (e) { return String(Date.now()); }
+  }
+  function buildAppCtx(applied, extra) {
+    extra = extra || {};
+    return {
+      sb: client(),
+      session,
+      profile,
+      rooms: applied && applied.rooms,
+      room: applied && applied.room,
+      month: getSelectedMonth(),
+      uid: uid(),
+      pending: (applied && applied.pending) || [],
+      unread: (applied && applied.unread) || 0,
+      isAdmin: isAdmin(applied && applied.room),
+      isOwner: isOwner(applied && applied.room),
+      members: applied && applied.members,
+      expenses: applied && applied.expenses,
+      splits: applied && applied.splits,
+      settlements: applied && applied.settlements,
+      invites: applied && applied.invites,
+      joinRequests: applied && applied.joinRequests,
+      categoryBudgets: applied && applied.categoryBudgets,
+      presets: applied && applied.presets,
+      spendByMonth: applied && applied.spendByMonth,
+      fromCache: !!extra.fromCache,
+      cachedAt: extra.cachedAt || null,
+      whenFresh: extra.whenFresh || null,
+    };
+  }
+  function paintBootChrome(applied) {
+    const rooms = (applied && applied.rooms) || [];
+    const room = applied && applied.room;
+    const pending = (applied && applied.pending) || [];
+    const unread = (applied && applied.unread) || 0;
+    const roomName = $("room-name");
+    if (roomName) roomName.textContent = room ? room.name : "Monthly Budget";
+    const monthBar = $("month-picker") || document.querySelector("main > .month-bar");
+    if (monthBar && !room) monthBar.hidden = true;
+    if (room && room.currency && CURRENCIES.some((c) => c.code === room.currency)) currency = room.currency;
+    setPendingBadge(pending.length || 0);
+    setNotifBadge(unread || 0);
+    paintHeaderAvatar(profile);
   }
   function patchProfile(partial) {
     if (!partial) return profile;
@@ -2403,7 +2604,8 @@
   }
   function injectFab() {
     const page = currentPage();
-    if (!["expenses.html", "activity.html"].includes(page)) return;
+    const skipFab = ["add-expense.html", "login.html", "signup.html", "reset-password.html", "invite.html", "index.html", ""];
+    if (skipFab.includes(page)) return;
     if (document.getElementById("fab-root")) return;
     const scan = page === "personal.html" ? "add-expense.html?kind=personal&scan=1" : "add-expense.html?scan=1";
     const room = "add-expense.html?kind=room";
@@ -2642,7 +2844,7 @@
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
     memberBalances, settleSuggestions, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet,
+    friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, pendingWithExpense, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,
@@ -2655,7 +2857,7 @@
     invitePageUrl, inviteShareText, whatsappShareHref, copyInviteMessage, shareInvite, safeNextPath,
     avatarHtml, paintHeaderAvatar, enhancePasswordFields, bindPasswordRules, itemizedSplits, fetchFxRate, proofThumbHtml, openProofLightbox, bindProofLightbox,
     compressImage, signedReceiptUrl, loadChartJs, whenVisible, cssToken, initials,
-    bootAuthPage, bootApp, showError, hideError, showPageError, showToast, patchProfile, bustAvatarUrl, setTheme, currentTheme, siteBase, withBase, originUrl,
+    bootAuthPage, bootApp, runPage, clearCachedState, showError, hideError, showPageError, showToast, patchProfile, bustAvatarUrl, setTheme, currentTheme, siteBase, withBase, originUrl,
     get profile() { return profile; },
     setCurrency(code) { currency = code; },
     get currency() { return currency; },

@@ -38,5 +38,5 @@
       ? suggestions.map((t) => MB.oweRowHtml(t, ctx.uid, members)).join("")
       : MB.emptyState({ art: "images/illu-handshake.webp", title: "You're all settled", text: "No outstanding balances with roommates this month." });
   }
-  main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); });
+  (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();
