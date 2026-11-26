@@ -10,10 +10,15 @@
   function selectedMemberIds() {
     if (splitMode === "all") return members.map((m) => m.id);
     const boxes = [...document.querySelectorAll("[data-split-id]")];
-    if (!boxes.length) return members.map((m) => m.id);
+    if (!boxes.length) return initialSelected ? members.map((m) => m.id).filter((id) => initialSelected.has(id)) : members.map((m) => m.id);
     return boxes.filter((el) => el.checked).map((el) => el.getAttribute("data-split-id"));
   }
 
+
+  let isManager = false;
+  let initialSelected = null;
+  const STATUS_LABEL = { paid: "Paid", pending: "Waiting", accepted: "Accepted", declined: "Declined" };
+  const STATUS_RANK = { paid: 0, pending: 1, declined: 2, accepted: 3 };
 
   function statusFor(userId) {
     if (!editing) return null;
@@ -21,18 +26,53 @@
     return row ? row.status : null;
   }
 
+  function payerId() {
+    const el = $("exp-paid-by");
+    return (el && el.value) || (editing && editing.paid_by) || MB.uid();
+  }
+
+  // paid | pending | accepted | declined | null (not part of this expense yet)
+  function shareStatusKey(userId) {
+    if (userId === payerId()) return "paid";
+    if (!editing || editing.personal) return null;
+    const row = (editing.splits || []).find((s) => s.user_id === userId);
+    if (!row) return null;
+    const k = MB.splitStatusKey ? MB.splitStatusKey(row) : (row.status || "pending");
+    return k === "forced" ? "accepted" : (STATUS_LABEL[k] ? k : "pending");
+  }
+
+  function nameOf(m) {
+    return (m && (MB.displayName ? MB.displayName(m.id, members) : m.display_name)) || "Member";
+  }
+
+  // Payer first, then people still to respond, then declined, then accepted; names A–Z within each.
+  function orderedMembers() {
+    const pid = payerId();
+    return members.slice().sort((a, b) => {
+      if (a.id === pid) return -1;
+      if (b.id === pid) return 1;
+      if (editing && !editing.personal) {
+        const ra = STATUS_RANK[shareStatusKey(a.id)] ?? 4;
+        const rb = STATUS_RANK[shareStatusKey(b.id)] ?? 4;
+        if (ra !== rb) return ra - rb;
+      }
+      return nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: "base" });
+    });
+  }
+
   function statusPill(userId) {
-    const st = statusFor(userId);
-    if (!st) return "";
-    return ` <span class="status-pill is-${st}">${MB.splitStatusLabel(st)}</span>`;
+    const st = shareStatusKey(userId);
+    if (!st || (!editing && st !== "paid")) return "";
+    const cls = st === "paid" ? "is-paid" : "is-" + st;
+    return `<span class="status-pill ${cls}">${STATUS_LABEL[st]}</span>`;
   }
 
   function refreshStatusPanel() {
     const notice = $("decline-notice");
     const panel = $("split-status");
+    if (panel) { panel.hidden = true; panel.innerHTML = ""; }
     if (!editing) {
       if (notice) notice.hidden = true;
-      if (panel) panel.hidden = true;
       return;
     }
     const declined = (editing.splits || []).filter((s) => s.status === "declined");
@@ -48,45 +88,78 @@
         notice.hidden = true;
       }
     }
-    if (panel) {
-      panel.hidden = false;
-      panel.innerHTML = (editing.splits || []).map((s) => {
-        const m = members.find((x) => x.id === s.user_id);
-        const name = (m && m.display_name) || "Member";
-        return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "sm")}<span>${escapeHtml(formatMoney(s.share_amount))}</span><span class="status-pill is-${escapeHtml(s.status || "pending")}">${escapeHtml(MB.splitStatusLabel(s.status))}</span></div>`;
-      }).join("");
+  }
+
+  function shareRowHtml(m, opts) {
+    const pid = payerId();
+    const isPayer = m.id === pid;
+    const st = shareStatusKey(m.id);
+    const you = m.id === MB.uid() ? ` <span class="you-tag">(you)</span>` : "";
+    const amountText = opts.amount != null && opts.amount > 0
+      ? "share " + formatMoney(opts.amount)
+      : (isPayer ? "no share" : "not included");
+    const payerExtra = "";
+    const meta = opts.hideAmount ? `${statusPill(m.id)}` : `${statusPill(m.id)}<span>${escapeHtml(payerExtra + amountText)}</span>`;
+    const canForce = editing && !editing.personal && isManager && !isPayer && (st === "pending" || st === "declined");
+    const action = canForce
+      ? `<button type="button" class="outline-btn share-force" data-force="${escapeHtml(m.id)}" aria-label="Mark ${escapeHtml(nameOf(m))}'s share as accepted">Mark as accepted</button>`
+      : "";
+    return `<div class="split-member-row share-row${isPayer ? " is-payer" : ""}">
+      <label class="share-main">${opts.control || ""}${MB.avatarHtml ? MB.avatarHtml(m, "sm") : ""}
+        <span class="share-text"><span class="share-name"><span class="share-name-text">${escapeHtml(nameOf(m))}</span>${you}</span>
+        <span class="share-meta">${meta}</span></span>
+        ${opts.input || ""}
+      </label>${action}</div>`;
+  }
+
+  function paintSplitSummary(shares) {
+    const el = $("split-summary");
+    if (!el) return;
+    if (splitMode === "custom") {
+      el.textContent = (document.querySelector("[data-item-row]") && collectItems().length ? "From items · " : "Custom amounts · ") + shares.filter((s) => s.share_amount > 0).length + " people";
+      return;
     }
+    const amts = shares.map((s) => Number(s.share_amount)).filter((x) => x > 0);
+    if (!amts.length) { el.textContent = ""; return; }
+    const each = Math.min(...amts);
+    el.textContent = amts.length === 1
+      ? "One person · " + formatMoney(each)
+      : (splitMode === "all" ? "Split equally" : "Split equally between " + amts.length) + " · " + formatMoney(each) + " each";
   }
 
   function renderSplitUi() {
     const amount = Number($("exp-amount").value) || 0;
     const host = $("split-box");
     host.className = "split-member-list";
-    const who = (m) => `<span class="split-who">${MB.personChip(m, members, "sm")}${m.id === MB.uid() ? " <span class=\"you-tag\">(you)</span>" : ""}${statusPill(m.id)}</span>`;
+    const list = orderedMembers();
     if (splitMode === "custom") {
       const current = {};
-      if (editing) {
+      document.querySelectorAll("[data-custom-id]").forEach((el) => { current[el.getAttribute("data-custom-id")] = el.value; });
+      if (!Object.keys(current).length && editing) {
         (editing.splits || []).forEach((s) => { current[s.user_id] = s.share_amount; });
       }
-      host.innerHTML = members.map((m) => `
-        <label class="split-member-row">${who(m)}
-        <input type="number" min="0" step="0.01" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" /></label>`).join("") + `<p class="card-sub" id="split-sum"></p>`;
-      host.querySelectorAll("[data-custom-id]").forEach((el) => el.addEventListener("input", updateSplitSum));
+      host.innerHTML = list.map((m) => shareRowHtml(m, {
+        hideAmount: true,
+        input: `<input type="number" min="0" step="0.01" inputmode="decimal" data-custom-id="${escapeHtml(m.id)}" value="${escapeHtml(current[m.id] != null ? String(current[m.id]) : "")}" placeholder="0.00" aria-label="${escapeHtml(nameOf(m))} share" />`,
+      })).join("") + `<p class="card-sub" id="split-sum"></p>`;
+      host.querySelectorAll("[data-custom-id]").forEach((el) => el.addEventListener("input", () => { updateSplitSum(); paintSplitSummary(collectSplits()); }));
       updateSplitSum();
+      paintSplitSummary(collectSplits());
       if (typeof validateExpense === "function") validateExpense(false);
       return;
     }
     const ids = selectedMemberIds();
-    const shares = equalSplits(amount, ids);
-    host.innerHTML = members.map((m) => {
+    const shares = equalSplits(amount, members.map((m) => m.id).filter((id) => ids.includes(id)));
+    host.innerHTML = list.map((m) => {
       const share = shares.find((s) => s.user_id === m.id);
       const checked = ids.includes(m.id) ? "checked" : "";
-      const box = splitMode === "selected" ? `<input type="checkbox" data-split-id="${escapeHtml(m.id)}" ${checked} />` : "";
-      return `<label class="split-member-row">${box}${who(m)}<strong class="split-amt">${share ? formatMoney(share.share_amount) : "—"}</strong></label>`;
+      const box = splitMode === "selected" ? `<input type="checkbox" data-split-id="${escapeHtml(m.id)}" ${checked} aria-label="Include ${escapeHtml(nameOf(m))}" />` : "";
+      return shareRowHtml(m, { control: box, amount: share ? share.share_amount : null });
     }).join("");
     if (splitMode === "selected") {
       host.querySelectorAll("[data-split-id]").forEach((el) => el.addEventListener("change", renderSplitUi));
     }
+    paintSplitSummary(shares);
     if (typeof validateExpense === "function") validateExpense(false);
   }
 
@@ -161,6 +234,10 @@
         const tax = Number($("exp-tax") && $("exp-tax").value) || 0;
         const tip = Number($("exp-tip") && $("exp-tip").value) || 0;
         splits = MB.itemizedSplits(items, tax, tip);
+        const itemTotal = splits.reduce((acc, x) => acc + Number(x.share_amount), 0);
+        if (amount > 0 && Math.abs(itemTotal - amount) > 0.02) {
+          errors.push({ el: amountEl, message: "Items + tax + tip (" + formatMoney(itemTotal) + ") must match the bill amount." });
+        }
       }
       const splitHost = $("split-box") || $("split-error");
       if (!splits.length) {
@@ -334,51 +411,107 @@
   }
 
   function addItemRow(item) {
+    const first = !document.querySelector("[data-item-row]");
     item = item || { description: "", amount: "", member_ids: members.map((m) => m.id) };
     const row = document.createElement("div");
     row.className = "item-block";
     row.setAttribute("data-item-row", "1");
     row.innerHTML = `<div class="item-row">
-        <label class="field"><span>Item</span><input type="text" data-item-desc value="${escapeHtml(item.description || "")}" placeholder="e.g. Pasta" /></label>
-        <label class="field"><span>Amount</span><input type="number" min="0" step="0.01" data-item-amt value="${escapeHtml(item.amount === "" ? "" : String(item.amount))}" /></label>
-        <button type="button" class="text-btn" data-item-del aria-label="Remove line">Remove</button>
+        <label class="field"><span>Item</span><input type="text" data-item-desc value="${escapeHtml(item.description || "")}" placeholder="${first ? "e.g. Pizza" : "e.g. Cold drink"}" /></label>
+        <label class="field"><span>Amount</span><input type="number" min="0" step="0.01" inputmode="decimal" data-item-amt value="${escapeHtml(item.amount === "" ? "" : String(item.amount))}" placeholder="${first ? "400" : "60"}" /></label>
+        <button type="button" class="text-btn" data-item-del aria-label="Remove item">Remove</button>
       </div>
-      <div class="item-members">${members.map((m) => {
+      <p class="item-who-label">Who shared it?</p>
+      <div class="item-members">${orderedMembers().map((m) => {
         const on = (item.member_ids || []).includes(m.id) ? "checked" : "";
-        return `<label class="chip"><input type="checkbox" data-item-mem value="${escapeHtml(m.id)}" ${on} /> ${escapeHtml(m.display_name)}</label>`;
+        return `<label class="chip"><input type="checkbox" data-item-mem value="${escapeHtml(m.id)}" ${on} /> ${escapeHtml(nameOf(m))}</label>`;
       }).join("")}</div>`;
     $("item-list").appendChild(row);
     row.querySelector("[data-item-del]").addEventListener("click", () => { row.remove(); paintItemSum(); });
     row.querySelectorAll("input").forEach((el) => el.addEventListener("input", paintItemSum));
+    row.querySelectorAll("input[type=checkbox]").forEach((el) => el.addEventListener("change", paintItemSum));
     paintItemSum();
   }
 
-  function paintItemSum() {
+  function itemizeTotals() {
     const items = collectItems();
     const tax = Number($("exp-tax") && $("exp-tax").value) || 0;
     const tip = Number($("exp-tip") && $("exp-tip").value) || 0;
     const parts = MB.itemizedSplits(items, tax, tip);
-    const total = parts.reduce((s, x) => s + x.share_amount, 0);
-    const el = $("itemize-sum");
-    if (el) el.textContent = items.length ? ("Itemized total " + formatMoney(total) + " across " + parts.length + " people.") : "";
+    const sub = {};
+    items.forEach((it) => equalSplits(it.amount, it.member_ids).forEach((p) => { sub[p.user_id] = (sub[p.user_id] || 0) + p.share_amount; }));
+    const itemsTotal = Math.round(items.reduce((acc, it) => acc + it.amount, 0) * 100) / 100;
+    const total = Math.round(parts.reduce((acc, x) => acc + x.share_amount, 0) * 100) / 100;
+    return { items, tax, tip, parts, sub, itemsTotal, total };
   }
 
-  function applyItemsToSplit() {
-    const items = collectItems();
-    const tax = Number($("exp-tax").value) || 0;
-    const tip = Number($("exp-tip").value) || 0;
-    const parts = MB.itemizedSplits(items, tax, tip);
-    const total = Math.round(parts.reduce((s, x) => s + x.share_amount, 0) * 100) / 100;
-    if (!parts.length) return;
-    $("exp-amount").value = String(total);
+  function paintItemSum() {
+    const t = itemizeTotals();
+    const el = $("itemize-sum");
+    const box = $("itemize-breakdown");
+    if (!t.items.length) {
+      if (el) el.textContent = "";
+      if (box) { box.hidden = true; box.innerHTML = ""; }
+      if (typeof validateExpense === "function") validateExpense(false);
+      return;
+    }
+    const amountEl = $("exp-amount");
+    const bill = Number(amountEl.value) || 0;
+    // Fill the bill from the items until the person types their own amount.
+    if ((!bill || amountEl.dataset.auto === "1") && document.activeElement !== amountEl) {
+      amountEl.value = String(t.total);
+      amountEl.dataset.auto = "1";
+    }
+    const order = orderedMembers().map((m) => m.id);
+    const rows = t.parts.slice().sort((a, b) => order.indexOf(a.user_id) - order.indexOf(b.user_id)).map((p) => {
+      const m = members.find((x) => x.id === p.user_id) || { id: p.user_id, display_name: "Member" };
+      const items = Math.round((t.sub[p.user_id] || 0) * 100) / 100;
+      const extra = Math.round((p.share_amount - items) * 100) / 100;
+      const math = (t.tax || t.tip)
+        ? `${formatMoney(items)} items + ${formatMoney(extra)} tax & tip`
+        : `${formatMoney(items)} items`;
+      return `<div class="ib-row"><span class="ib-name">${escapeHtml(nameOf(m))}</span><span class="ib-math">${escapeHtml(math)}</span><strong class="ib-total">${escapeHtml(formatMoney(p.share_amount))}</strong></div>`;
+    }).join("");
+    const parts = [`Items ${formatMoney(t.itemsTotal)}`];
+    if (t.tax) parts.push(`tax ${formatMoney(t.tax)}`);
+    if (t.tip) parts.push(`tip ${formatMoney(t.tip)}`);
+    const nowBill = Number(amountEl.value) || 0;
+    const off = Math.round((t.total - nowBill) * 100) / 100;
+    const mismatch = Math.abs(off) > 0.02
+      ? `<p class="ib-warn">The bill amount is ${escapeHtml(formatMoney(nowBill))}, but items + tax + tip come to ${escapeHtml(formatMoney(t.total))}. <button type="button" class="text-btn" id="ib-use-total">Use ${escapeHtml(formatMoney(t.total))} as the bill</button></p>`
+      : "";
+    if (box) {
+      box.hidden = false;
+      box.innerHTML = `<p class="ib-title">Each person pays</p>${rows}<div class="ib-row ib-sum"><span class="ib-name">${escapeHtml(parts.join(" + "))}</span><strong class="ib-total">${escapeHtml(formatMoney(t.total))}</strong></div>${mismatch}`;
+      const use = $("ib-use-total");
+      if (use) use.addEventListener("click", () => { amountEl.value = String(t.total); amountEl.dataset.auto = "1"; paintItemSum(); });
+    }
+    if (el) el.textContent = "";
+    // What you see is what gets saved: mirror the item shares into the split list.
+    syncItemsToSplit(t);
+    if (typeof validateExpense === "function") validateExpense(false);
+  }
+
+  function syncItemsToSplit(t) {
+    if (!t.parts.length) return;
     splitMode = "custom";
     document.querySelectorAll("[data-split-mode]").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-split-mode") === "custom"));
-    renderSplitUi();
-    parts.forEach((p) => {
+    document.querySelectorAll("[data-custom-id]").forEach((el) => { el.value = ""; });
+    if (!document.querySelector("[data-custom-id]")) renderSplitUi();
+    document.querySelectorAll("[data-custom-id]").forEach((el) => { el.value = ""; });
+    t.parts.forEach((p) => {
       const input = document.querySelector(`[data-custom-id="${p.user_id}"]`);
       if (input) input.value = String(p.share_amount);
     });
     updateSplitSum();
+    paintSplitSummary(collectSplits());
+  }
+
+  function applyItemsToSplit() {
+    const t = itemizeTotals();
+    if (!t.parts.length) return;
+    $("exp-amount").value = String(t.total);
+    paintItemSum();
   }
 
   function parseReceiptText(text) {
@@ -628,8 +761,18 @@
         const created = editing.created_at || editing.date;
         const rows = [];
         rows.push(`<li class="is-done"><span class="tl-icon">✓</span><div class="tl-body"><strong>${escapeHtml(editing.description || "Expense")} added</strong><span class="tl-time">${escapeHtml(MB.friendlyDate(created) || "")}</span></div></li>`);
-        splits.forEach((s) => {
+        const order = orderedMembers().map((m) => m.id);
+        const rank = (id) => { const i = order.indexOf(id); return i < 0 ? 999 : i; };
+        const pid = editing.paid_by;
+        if (pid && !splits.some((s) => s.user_id === pid)) {
+          rows.push(`<li class="is-done"><span class="tl-icon">✓</span><div class="tl-body"><div>${MB.personChip(MB.memberRecord(pid, members), members, "sm")} paid ${escapeHtml(formatMoney(editing.amount))} · no share</div></div></li>`);
+        }
+        splits.slice().sort((a, b) => rank(a.user_id) - rank(b.user_id)).forEach((s) => {
           const person = MB.memberRecord(s.user_id, members);
+          if (s.user_id === pid) {
+            rows.push(`<li class="is-done"><span class="tl-icon">✓</span><div class="tl-body"><div>${MB.personChip(person, members, "sm")} paid ${escapeHtml(formatMoney(editing.amount))} · share ${escapeHtml(formatMoney(s.share_amount))}</div></div></li>`);
+            return;
+          }
           const st = s.status || "pending";
           const when = s.responded_at || s.forced_at || "";
           let line = MB.personChip(person, members, "sm");
@@ -651,31 +794,69 @@
   }
 
 
+  // runPage re-runs main after fresh data arrives. The form binds listeners and holds
+  // what the person typed, so build it once; only a run that hit "no room yet"
+  // (cached data) may be followed by a full build.
+  let built = false;
+  let topBound = false;
+  let submitBound = false;
+  let noRoomShown = false;
+  function bindSubmitOnce() {
+    if (submitBound) return;
+    submitBound = true;
+    $("expense-form").addEventListener("submit", save);
+  }
   async function main() {
     const params = new URLSearchParams(location.search);
     const id = params.get("id");
     const initialKind = (params.get("kind") === "personal" || params.get("mode") === "personal") ? "personal" : "room";
     const ctx = await MB.bootApp({ title: id ? "Edit expense" : "Add expense", keepMonth: initialKind === "personal" });
     if (!ctx) return;
+    if (built) {
+      // Fresh data after a cached first paint: only pick up roommate changes.
+      const fresh = (ctx.members && ctx.members.length) ? ctx.members : null;
+      if (fresh && fresh.map((m) => m.id).join() !== members.map((m) => m.id).join()) {
+        members = fresh;
+        const paid = $("exp-paid-by");
+        const keep = paid.value;
+        paid.innerHTML = members.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.display_name)}${m.id === ctx.uid ? " (you)" : ""}</option>`).join("");
+        paid.value = keep;
+        isManager = !!ctx.isAdmin;
+        renderSplitUi();
+      }
+      return;
+    }
     fillCurrencySelect((ctx.room && ctx.room.currency) || (ctx.profile && ctx.profile.currency) || MB.currency || "INR");
 
-    document.querySelectorAll("#kind-toggle [data-kind]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        if (id) return;
-        setKind(btn.getAttribute("data-kind"), ctx);
+    let ctxNow = ctx;
+    if (!topBound) {
+      topBound = true;
+      document.querySelectorAll("#kind-toggle [data-kind]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (id) return;
+          setKind(btn.getAttribute("data-kind"), ctxNow);
+        });
       });
-    });
-    $("per-type").addEventListener("change", fillPersonalCategories);
+      $("per-type").addEventListener("change", fillPersonalCategories);
+    }
 
     if (!ctx.room) {
+      if (noRoomShown) return;
+      noRoomShown = true;
       $("no-room").hidden = false;
       setKind("personal", ctx);
       $("kind-toggle").querySelector('[data-kind="room"]').disabled = true;
       $("exp-date").value = MB.todayISO();
-      $("expense-form").addEventListener("submit", save);
+      bindSubmitOnce();
       return;
     }
+    built = true;
+    if (noRoomShown) {
+      $("no-room").hidden = true;
+      $("kind-toggle").querySelector('[data-kind="room"]').disabled = false;
+    }
     setKind(initialKind, ctx);
+    isManager = !!ctx.isAdmin;
     members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     if (kind === "room" && !ctx.isAdmin && ctx.room.members_can_add_expenses === false && !id) {
       $("expense-form").hidden = true;
@@ -723,8 +904,11 @@
       $("exp-date").value = exp.date;
       $("exp-paid-by").value = exp.paid_by;
       const involved = new Set((splits || []).map((s) => s.user_id));
-      const allEqual = members.every((m) => involved.has(m.id));
-      splitMode = allEqual ? "all" : "custom";
+      const amts = (splits || []).map((s) => Number(s.share_amount) || 0);
+      const evenly = amts.length > 0 && (Math.max(...amts) - Math.min(...amts)) <= 0.011;
+      if (evenly && members.every((m) => involved.has(m.id))) splitMode = "all";
+      else if (evenly) { splitMode = "selected"; initialSelected = involved; }
+      else splitMode = "custom";
       document.querySelectorAll("[data-split-mode]").forEach((btn) => {
         btn.classList.toggle("is-active", btn.getAttribute("data-split-mode") === splitMode);
       });
@@ -740,29 +924,21 @@
         note.textContent = "You are editing someone else's expense. The person who added it and anyone affected will be notified.";
         $("expense-form").insertBefore(note, $("expense-form").firstChild);
       }
-      if (ctx.isAdmin) {
-        const host = document.createElement("div");
-        host.id = "force-box";
-        host.className = "split-status";
-        $("expense-form").appendChild(host);
-        const pending = (editing.splits || []).filter((s) => s.status === "pending" || s.status === "declined");
-        if (pending.length) {
-          host.innerHTML = "<h3>Mark shares as accepted</h3>" + pending.map((s) => {
-            const m = members.find((x) => x.id === s.user_id);
-            const name = (m && m.display_name) || "Member";
-            return `<div class="split-status-row">${MB.personChip(m || { id: s.user_id, display_name: name }, members, "sm")}<span>${escapeHtml(formatMoney(s.share_amount))} · ${escapeHtml(MB.splitStatusLabel(s.status))}</span><button type="button" class="text-btn" data-force="${escapeHtml(s.user_id)}">Mark as accepted</button></div>`;
-          }).join("");
-          host.querySelectorAll("[data-force]").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-              if (!confirm("Accept this share on their behalf? They will be notified.")) return;
-              const { error } = await MB.client().rpc("force_accept_share", { p_expense_id: editing.id, p_user_id: btn.getAttribute("data-force") });
-              if (error) return MB.showPageError(errorMessage(error));
-              location.reload();
-            });
-          });
-        }
-      }
     }
+
+    // Managers can mark someone's share as accepted, inline on that person's row.
+    $("split-box").addEventListener("click", async (ev) => {
+      const btn = ev.target.closest && ev.target.closest("[data-force]");
+      if (!btn || !editing) return;
+      ev.preventDefault();
+      const who = MB.displayName(btn.getAttribute("data-force"), members);
+      if (!confirm("Mark " + who + "'s share as accepted? " + who + " will be notified.")) return;
+      btn.disabled = true;
+      const { error } = await MB.client().rpc("force_accept_share", { p_expense_id: editing.id, p_user_id: btn.getAttribute("data-force") });
+      if (error) { btn.disabled = false; return MB.showPageError(errorMessage(error)); }
+      location.reload();
+    });
+    $("exp-paid-by").addEventListener("change", renderSplitUi);
 
     document.querySelectorAll("[data-split-mode]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -771,8 +947,12 @@
         renderSplitUi();
       });
     });
-    $("exp-amount").addEventListener("input", renderSplitUi);
-    $("expense-form").addEventListener("submit", save);
+    $("exp-amount").addEventListener("input", (ev) => {
+      if (ev.isTrusted) delete $("exp-amount").dataset.auto;
+      renderSplitUi();
+      if (document.querySelector("[data-item-row]")) paintItemSum();
+    });
+    bindSubmitOnce();
     $("exp-delete").addEventListener("click", removeExpense);
     refreshStatusPanel();
     renderSplitUi();

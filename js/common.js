@@ -2105,9 +2105,11 @@
   function afterBootSession() {
     try { startNotifWatch(); } catch (err) { console.warn(err); }
     try {
-      const wanted = localStorage.getItem("mb-push-enabled") === "1";
-      if (wanted && "Notification" in window && Notification.permission === "granted") {
-        ensurePushSubscription().catch(() => {});
+      // Re-register on every open while permission is granted, so a device whose
+      // registration expired (for example after installing the Android app) heals itself.
+      const optedOut = localStorage.getItem("mb-push-opted-out") === "1";
+      if (!optedOut && "Notification" in window && Notification.permission === "granted") {
+        ensurePushSubscription().catch((err) => console.warn("push re-register failed", err));
       }
     } catch (e) { /* ignore */ }
   }
@@ -2367,10 +2369,19 @@
       p_user_agent: navigator.userAgent,
     });
     if (error) throw error;
-    try { localStorage.setItem("mb-push-enabled", "1"); localStorage.setItem("mb-push-banner-dismissed", "1"); } catch (e) { /* ignore */ }
+    try { localStorage.setItem("mb-push-enabled", "1"); localStorage.removeItem("mb-push-opted-out"); } catch (e) { /* ignore */ }
     return keys;
   }
-  async function subscribePush(opts) {
+  // One push registration change at a time: two overlapping subscribe/unsubscribe
+  // calls (page boot + Enable tap, or two tabs) used to kill each other's endpoints.
+  let pushOp = null;
+  function withPushLock(fn) {
+    const run = (pushOp || Promise.resolve()).catch(() => {}).then(fn);
+    pushOp = run.finally(() => { if (pushOp === run) pushOp = null; });
+    return run;
+  }
+  function subscribePush(opts) { return withPushLock(() => subscribePushInner(opts)); }
+  async function subscribePushInner(opts) {
     const force = !!(opts && opts.force);
     if (!vapidPublicKey()) throw new Error("Push is not configured on this site yet.");
     if (!("Notification" in window) || !("PushManager" in window)) throw new Error("This browser does not support phone notifications.");
@@ -2382,30 +2393,66 @@
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (force && sub) {
+      try { await client().rpc("delete_push_subscription", { p_endpoint: sub.endpoint }); } catch (e) { /* ignore */ }
       try { await sub.unsubscribe(); } catch (e) { /* ignore */ }
       sub = null;
     }
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey()),
-      });
+    const fresh = async () => reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey()),
+    });
+    if (!sub) sub = await fresh();
+    try {
+      await upsertCurrentSubscription(sub);
+    } catch (err) {
+      // The server knows this registration is dead (the push service said 404/410).
+      // Throw it away and register this device again.
+      if (!isExpiredPushError(err)) throw err;
+      try { await client().rpc("delete_push_subscription", { p_endpoint: sub.endpoint }); } catch (e) { /* ignore */ }
+      try { await sub.unsubscribe(); } catch (e) { /* ignore */ }
+      sub = await fresh();
+      await upsertCurrentSubscription(sub);
     }
-    await upsertCurrentSubscription(sub);
     return sub;
   }
-  async function ensurePushSubscription() {
-    if (!("Notification" in window) || Notification.permission !== "granted") {
-      return subscribePush();
-    }
-    const existing = await getPushSubscription().catch(() => null);
-    if (existing && subscriptionKeys(existing)) {
+  function isExpiredPushError(err) {
+    const code = err && (err.code || (err.cause && err.cause.code));
+    const msg = String((err && (err.message || err.details)) || "");
+    return code === "P0410" || code === "PT410" || msg.indexOf("push_endpoint_expired") >= 0;
+  }
+  async function pushStatus() {
+    const supported = ("Notification" in window) && ("PushManager" in window) && ("serviceWorker" in navigator);
+    if (!supported) return { supported: false, permission: "unsupported", subscribed: false };
+    const permission = Notification.permission;
+    let subscribed = false;
+    if (permission === "granted") {
       try {
-        await upsertCurrentSubscription(existing);
-        return existing;
-      } catch (err) { /* fall through and resubscribe */ }
+        const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 4000))]);
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        subscribed = !!(sub && subscriptionKeys(sub));
+      } catch (e) { subscribed = false; }
     }
-    return subscribePush({ force: true });
+    return { supported: true, permission, subscribed };
+  }
+  function ensurePushSubscription() {
+    return withPushLock(async () => {
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        return subscribePushInner();
+      }
+      const existing = await getPushSubscription().catch(() => null);
+      if (existing && subscriptionKeys(existing)) {
+        try {
+          await upsertCurrentSubscription(existing);
+          return existing;
+        } catch (err) {
+          // Only throw the registration away when the server says it is dead;
+          // a network hiccup must not unsubscribe a working device.
+          if (!isExpiredPushError(err)) throw err;
+          return subscribePushInner({ force: true });
+        }
+      }
+      return subscribePushInner();
+    });
   }
   async function unsubscribePush() {
     const sub = await getPushSubscription();
@@ -2415,7 +2462,7 @@
     } else {
       try { await client().rpc("delete_push_subscription", { p_endpoint: null }); } catch (e) { /* ignore */ }
     }
-    try { localStorage.removeItem("mb-push-enabled"); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem("mb-push-enabled"); localStorage.setItem("mb-push-opted-out", "1"); } catch (e) { /* ignore */ }
   }
   async function sendTestPush() {
     const sub = await ensurePushSubscription();
@@ -3238,7 +3285,7 @@
     withoutAdminLabel, fillCategorySelect, bindCategoryPicker, syncCategoryPicker, openCategoryPicker,
     colorForCategory, monthKeysBack, shiftMonth, loadRoomExpensesRange, loadPersonalRange,
     loadRoomCategoryBudgets, maybeBrowserNotify, requestBrowserNotify,
-    isIosDevice, isStandaloneApp, subscribePush, unsubscribePush, sendTestPush, getPushSubscription, ensurePushSubscription,
+    isIosDevice, isStandaloneApp, pushStatus, subscribePush, unsubscribePush, sendTestPush, getPushSubscription, ensurePushSubscription,
     invitePageUrl, inviteShareText, whatsappShareHref, copyInviteMessage, shareInvite, safeNextPath,
     avatarHtml, paintHeaderAvatar, enhancePasswordFields, bindPasswordRules, itemizedSplits, fetchFxRate, proofThumbHtml, openProofLightbox, bindProofLightbox,
     compressImage, signedReceiptUrl, loadChartJs, whenVisible, cssToken, initials,

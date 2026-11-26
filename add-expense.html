@@ -25,7 +25,7 @@
   <meta name="color-scheme" content="dark light" />
   <title>Add expense · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=33" />
+  <link rel="manifest" href="manifest.json?v=34" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -107,21 +107,24 @@
           <button type="button" class="outline-btn" id="save-preset">Save as preset</button>
         </div>
       </div>
+      <p class="split-summary" id="split-summary" aria-live="polite"></p>
       <div id="split-box" class="split-member-list"></div>
       <p class="field-error" id="split-error" hidden></p>
       <details id="itemize-box" class="disclose">
-        <summary>Itemize (split line by line)
+        <summary>Itemize · people had different things
           <svg class="disclose-chevron" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.7 9.3a1 1 0 0 1 1.4 0L12 13.17l3.9-3.87a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4z"/></svg>
         </summary>
-        <p class="card-sub">Each line has an amount and assigned members. Tax and tip are spread in proportion to the line totals.</p>
+        <p class="itemize-explainer">Use this when people had different things. Add each item and who shared it.</p>
+        <p class="card-sub itemize-example">Example: Pizza ₹400 shared by two people is ₹200 each, and a ₹60 drink for one person goes only to that person. Tax and tip are shared in proportion to each person's items.</p>
         <div id="item-list"></div>
-        <button type="button" class="secondary-btn" id="add-item" style="margin:8px 0">Add line</button>
-        <div class="filters">
-          <label class="field"><span>Tax</span><input type="number" id="exp-tax" min="0" step="0.01" value="0" /></label>
-          <label class="field"><span>Tip</span><input type="number" id="exp-tip" min="0" step="0.01" value="0" /></label>
+        <button type="button" class="secondary-btn" id="add-item" style="margin:8px 0">Add item</button>
+        <div class="filters itemize-extras">
+          <label class="field"><span>Tax (optional)</span><input type="number" id="exp-tax" min="0" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
+          <label class="field"><span>Tip / service (optional)</span><input type="number" id="exp-tip" min="0" step="0.01" inputmode="decimal" placeholder="0.00" /></label>
         </div>
+        <div id="itemize-breakdown" class="itemize-breakdown" hidden></div>
         <p class="card-sub" id="itemize-sum"></p>
-        <button type="button" class="text-btn" id="apply-items">Apply to split</button>
+        <button type="button" class="text-btn" id="apply-items" hidden>Use these shares</button>
       </details>
       <p class="card-sub" id="split-hint">Roommates you pick (other than you) get a pending share they must accept. Declined shares are not redistributed automatically.</p>
       <p class="notice" id="decline-notice" hidden></p>

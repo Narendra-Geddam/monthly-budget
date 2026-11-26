@@ -1,5 +1,7 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v33";
+const SHELL_CACHE = "mb-shell-v34";
+// Supabase URL, anon key and VAPID public key, for re-registering rotated push subscriptions.
+try { self.window = self; importScripts("config.js"); } catch (e) { /* optional */ }
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
 const SHELL_FILES = [
   "dashboard.html",
@@ -157,6 +159,32 @@ self.addEventListener("push", (event) => {
     });
     await self.registration.showNotification(title, opts);
   })());
+});
+
+// When the browser rotates a push subscription, register the new one right away
+// so notifications keep arriving without the person reopening the app.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil((async () => {
+    const url = self.SUPABASE_URL;
+    const anon = self.SUPABASE_ANON_KEY;
+    const vapid = self.VAPID_PUBLIC_KEY;
+    const old = event.oldSubscription && event.oldSubscription.toJSON ? event.oldSubscription.toJSON() : null;
+    if (!url || !anon || !vapid || !old || !old.endpoint || !old.keys || !old.keys.auth) return;
+    let next = event.newSubscription;
+    if (!next) {
+      const pad = "=".repeat((4 - (vapid.length % 4)) % 4);
+      const raw = atob((vapid + pad).replace(/-/g, "+").replace(/_/g, "/"));
+      const key = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
+      next = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    }
+    const sub = next.toJSON();
+    await fetch(url + "/functions/v1/send-push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: anon, Authorization: "Bearer " + anon },
+      body: JSON.stringify({ action: "rotate", old_endpoint: old.endpoint, old_auth: old.keys.auth, subscription: sub }),
+    });
+  })().catch(() => {}));
 });
 
 self.addEventListener("notificationclick", (event) => {

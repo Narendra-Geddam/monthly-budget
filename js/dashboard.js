@@ -276,19 +276,30 @@
     });
   }
 
-  function setupPushBanner() {
+  async function setupPushBanner() {
     const banner = $("push-banner");
     if (!banner) return;
-    const dismissed = (() => { try { return localStorage.getItem("mb-push-banner-dismissed") === "1"; } catch (e) { return false; } })();
-    const enabled = (() => { try { return localStorage.getItem("mb-push-enabled") === "1"; } catch (e) { return false; } })();
-    if (dismissed || enabled) return;
+    const snoozedUntil = (() => { try { return Number(localStorage.getItem("mb-push-banner-snooze") || 0); } catch (e) { return 0; } })();
+    const optedOut = (() => { try { return localStorage.getItem("mb-push-opted-out") === "1"; } catch (e) { return false; } })();
+    if (optedOut || snoozedUntil > Date.now()) { banner.hidden = true; return; }
+    const st = MB.pushStatus ? await MB.pushStatus() : { supported: false };
+    // Show whenever this device is not actually registered, even if it was enabled before.
+    if (!st.supported || (st.permission === "granted" && st.subscribed)) { banner.hidden = true; return; }
     if (MB.isIosDevice()) {
       const hint = $("dash-ios-hint");
       if (hint) hint.hidden = false;
     }
+    const sub = banner.querySelector(".card-sub");
+    if (sub) {
+      sub.textContent = st.permission === "denied"
+        ? "Notifications are blocked for this app. Turn them on in your phone's settings for Monthly Budget (or Chrome), then tap Enable. You'll hear about new shares and payments right away."
+        : "Turn on notifications on this phone so you hear about new shares to accept and payments right away, even when the app is closed.";
+    }
     banner.hidden = false;
+    if (banner.dataset.bound) return;
+    banner.dataset.bound = "1";
     $("push-banner-dismiss").addEventListener("click", () => {
-      try { localStorage.setItem("mb-push-banner-dismissed", "1"); } catch (e) { /* ignore */ }
+      try { localStorage.setItem("mb-push-banner-snooze", String(Date.now() + 3 * 24 * 60 * 60 * 1000)); } catch (e) { /* ignore */ }
       banner.hidden = true;
     });
     $("push-banner-enable").addEventListener("click", async () => {
@@ -297,6 +308,7 @@
       try {
         await MB.subscribePush();
         banner.hidden = true;
+        if (MB.toast) MB.toast("Notifications are on for this phone.");
       } catch (e) {
         if (err) { err.hidden = false; err.textContent = MB.errorMessage(e); }
       }
@@ -354,7 +366,7 @@
   async function main() {
     const ctx = await MB.bootApp({ title: "This month", month: true });
     if (!ctx) return;
-    setupPushBanner();
+    setupPushBanner().catch(() => {});
     if (!ctx.room) { renderReceiptPromo(); return renderNoRoom(); }
     revealRoomDashboard();
     if (!$("hero-status") || !$("hero-line")) {
