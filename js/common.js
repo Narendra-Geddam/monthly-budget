@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=36";
+  const MANIFEST_HREF = "manifest.json?v=37";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -774,22 +774,51 @@
     return { label: "You owe", value: formatMoney(Math.abs(n)), cls: "is-bad" };
   }
 
-  // net > 0: others owe this person. net < 0: this person owes.
-  function settleSuggestions(balances) {
-    const creditors = balances.filter((b) => b.net > 0).map((b) => ({ ...b, left: b.net })).sort((a, b) => b.left - a.left);
-    const debtors = balances.filter((b) => b.net < 0).map((b) => ({ ...b, left: -b.net })).sort((a, b) => b.left - a.left);
+  function settlementConfirmed(s) {
+    const st = String(s && s.status || "").toLowerCase();
+    if (st === "voided" || st === "void" || (s && s.voided_at)) return false;
+    if (st === "pending" || st === "cancelled" || st === "canceled" || st === "declined" || st === "rejected") return false;
+    if (st === "confirmed" || st === "received" || st === "completed") return true;
+    if (s && s.confirmed_at) return true;
+    return !st;
+  }
+
+  // Pairwise debts: for each pair, accepted shares on each other's bills,
+  // adjusted only by confirmed settlements between those two people.
+  // An overpayment shows as the receiver owing the extra back. No min-cash-flow.
+  function settleSuggestions(balances, expenses, splits, settlements) {
+    const people = balances || [];
+    const byId = new Map(people.map((b) => [b.id, b]));
+    const ids = people.map((b) => b && b.id).filter(Boolean);
+    const expenseById = new Map((expenses || []).filter((e) => e && e.id).map((e) => [e.id, e]));
     const transfers = [];
-    let i = 0, j = 0;
-    while (i < debtors.length && j < creditors.length) {
-      const pay = Math.min(debtors[i].left, creditors[j].left);
-      if (pay > 0) {
-        transfers.push({ from: debtors[i], to: creditors[j], amount: fromCents(pay) });
-        debtors[i].left -= pay;
-        creditors[j].left -= pay;
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const a = ids[i];
+        const b = ids[j];
+        let bOwesA = 0;
+        (splits || []).forEach((s) => {
+          if (!s || s.status !== "accepted") return;
+          const exp = expenseById.get(s.expense_id);
+          if (!exp || !exp.paid_by) return;
+          const cents = toCents(s.share_amount);
+          if (exp.paid_by === a && s.user_id === b) bOwesA += cents;
+          else if (exp.paid_by === b && s.user_id === a) bOwesA -= cents;
+        });
+        (settlements || []).forEach((s) => {
+          if (!settlementConfirmed(s)) return;
+          const cents = toCents(s.amount);
+          if (s.from_user === b && s.to_user === a) bOwesA -= cents;
+          else if (s.from_user === a && s.to_user === b) bOwesA += cents;
+        });
+        if (Math.abs(bOwesA) < 1) continue;
+        const personA = byId.get(a) || { id: a, name: "Member" };
+        const personB = byId.get(b) || { id: b, name: "Member" };
+        if (bOwesA > 0) transfers.push({ from: personB, to: personA, amount: fromCents(bOwesA) });
+        else transfers.push({ from: personA, to: personB, amount: fromCents(-bOwesA) });
       }
-      if (debtors[i].left <= 0) i += 1;
-      if (creditors[j].left <= 0) j += 1;
     }
+    transfers.sort((x, y) => (y.amount - x.amount) || String(x.from && x.from.name).localeCompare(String(y.from && y.from.name)));
     return transfers;
   }
 
@@ -890,8 +919,8 @@
     return null;
   }
 
-  function myTransfers(balances, userId) {
-    return settleSuggestions(balances || []).filter((t) => t && t.from && t.to && (t.from.id === userId || t.to.id === userId));
+  function myTransfers(balances, userId, expenses, splits, settlements) {
+    return settleSuggestions(balances || [], expenses, splits, settlements).filter((t) => t && t.from && t.to && (t.from.id === userId || t.to.id === userId));
   }
   function pendingSettlementFor(settlements, fromId, toId, amount) {
     const list = (settlements || []).filter((s) => s && s.status === "pending" && s.from_user === fromId && s.to_user === toId);
@@ -1127,37 +1156,60 @@
     if (netAmt > 0) return `<span class="net-chip is-good">${compact ? "gets" : "gets back"} ${escapeHtml(formatMoney(netAmt))}</span>`;
     return `<span class="net-chip is-bad">owes ${escapeHtml(formatMoney(Math.abs(netAmt)))}</span>`;
   }
-  function balanceHeadline(userId, balances) {
+  function balanceHeadline(userId, balances, expenses, splits, settlements) {
     const mine = (balances || []).find((b) => b.id === userId);
-    const netAmt = mine && mine.netAmt != null ? Number(mine.netAmt) : 0;
-    // Same source as the "My balance" line (netLabel / memberBalances.netAmt).
-    if (Math.abs(netAmt) < 0.005) {
-      return { text: "You're all settled 🎉", cls: "is-settled", direction: "settled", counterpart: null, amount: 0 };
+    const transfers = myTransfers(balances || [], userId, expenses, splits, settlements);
+    const lines = transfers.map((t) => {
+      const owe = t.from.id === userId;
+      const other = owe ? t.to : t.from;
+      const otherName = firstName((other && (other.name || other.display_name)) || "Roommate");
+      return {
+        direction: owe ? "owe" : "owed",
+        person: other,
+        amount: t.amount,
+        text: owe ? ("You owe " + otherName) : (otherName + " owes you"),
+        full: owe ? ("You owe " + otherName + " " + formatMoney(t.amount)) : (otherName + " owes you " + formatMoney(t.amount)),
+      };
+    });
+    if (!lines.length) {
+      return { text: "You're all settled 🎉", cls: "is-settled", direction: "settled", counterpart: null, amount: 0, lines: [] };
     }
-    const transfers = settleSuggestions(balances || []);
-    const paying = transfers.filter((x) => x.from.id === userId).sort((a, b) => b.amount - a.amount)[0];
-    const receiving = transfers.filter((x) => x.to.id === userId).sort((a, b) => b.amount - a.amount)[0];
-    if (netAmt < 0 && paying && Math.abs(paying.amount - Math.abs(netAmt)) < 0.05) {
-      return { text: "You owe " + paying.to.name + " " + formatMoney(paying.amount), cls: "is-owe", direction: "owe", counterpart: paying.to, amount: paying.amount };
+    if (lines.length === 1) {
+      const line = lines[0];
+      return {
+        text: line.full,
+        cls: line.direction === "owe" ? "is-owe" : "is-owed",
+        direction: line.direction,
+        counterpart: line.person,
+        amount: line.amount,
+        lines,
+      };
     }
-    if (netAmt > 0 && receiving && Math.abs(receiving.amount - netAmt) < 0.05) {
-      return { text: receiving.from.name + " owes you " + formatMoney(receiving.amount), cls: "is-owed", direction: "owed", counterpart: receiving.from, amount: receiving.amount };
-    }
-    if (netAmt > 0) {
-      return { text: "You'll get " + formatMoney(netAmt), cls: "is-owed", direction: "owed", counterpart: receiving && receiving.from, amount: netAmt };
-    }
-    return { text: "You owe " + formatMoney(Math.abs(netAmt)), cls: "is-owe", direction: "owe", counterpart: paying && paying.to, amount: Math.abs(netAmt) };
+    const onlyOwe = lines.every((l) => l.direction === "owe");
+    const onlyOwed = lines.every((l) => l.direction === "owed");
+    const owed = lines.filter((l) => l.direction === "owed");
+    return {
+      text: lines.map((l) => l.full).join(" · "),
+      cls: onlyOwe ? "is-owe" : (onlyOwed ? "is-owed" : "is-mixed"),
+      direction: onlyOwe ? "owe" : (onlyOwed ? "owed" : "mixed"),
+      counterpart: owed.length === 1 ? owed[0].person : null,
+      amount: owed.length === 1 ? owed[0].amount : (lines[0] && lines[0].amount) || 0,
+      lines,
+    };
   }
 
   function remindWhatsAppHref(headline, room) {
     const roomName = (room && room.name) || "our room";
     let msg;
-    if (headline && headline.direction === "owe" && headline.counterpart) {
-      msg = "Hi " + headline.counterpart.name + "! Just a reminder that I owe you " + formatMoney(headline.amount) + " for " + roomName + " on Monthly Budget this month.";
-    } else if (headline && headline.direction === "owed" && headline.counterpart) {
-      msg = "Hi " + headline.counterpart.name + "! Just a reminder that you owe me " + formatMoney(headline.amount) + " for " + roomName + " on Monthly Budget this month. Let's settle up when you can.";
+    const other = headline && headline.counterpart;
+    const otherName = firstName((other && (other.name || other.display_name)) || "there");
+    const period = (room && isTripRoom(room)) ? "this trip" : "this month";
+    if (headline && headline.direction === "owe" && other) {
+      msg = "Hi " + otherName + "! Just a reminder that I owe you " + formatMoney(headline.amount) + " for " + roomName + " on Monthly Budget " + period + ".";
+    } else if (headline && (headline.direction === "owed" || headline.direction === "mixed") && other) {
+      msg = "Hi " + otherName + "! Just a reminder that you owe me " + formatMoney(headline.amount) + " for " + roomName + " on Monthly Budget " + period + ". Let's settle up when you can.";
     } else if (headline && headline.direction === "settled") {
-      msg = "We're all settled up for " + roomName + " on Monthly Budget this month 🎉";
+      msg = "We're all settled up for " + roomName + " on Monthly Budget " + period + " 🎉";
     } else {
       return "";
     }
@@ -1272,7 +1324,7 @@
           <div class="item-sub">${categoryChip(e.category)} · ${escapeHtml(friendlyDate(e.date))} · paid by ${personChip(payer, members, "sm")}</div>
           <div class="item-sub">Your share ${escapeHtml(formatMoney(r.share_amount))} ${infoTip("Your share is the part of this expense that you are responsible for.")}</div>
         </div>
-        <div class="btn-row compact">
+        <div class="btn-row compact share-respond">
           <button type="button" class="primary-btn" data-accept="${escapeHtml(e.id)}">Accept</button>
           <button type="button" class="danger-btn ghost" data-decline="${escapeHtml(e.id)}">Decline</button>
         </div>

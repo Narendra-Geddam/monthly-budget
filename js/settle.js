@@ -8,9 +8,9 @@
     const members = (ctx.members && ctx.members.length) ? ctx.members : await MB.loadMembers(ctx.room.id);
     const { expenses, splits, settlements } = (ctx.expenses && ctx.splits && ctx.settlements) ? ctx : await MB.loadMonthData(ctx.room.id, ctx.month);
     const balances = MB.memberBalances(members, expenses, splits, settlements);
-    const suggestions = (MB.myTransfers || function (bals, id) {
-      return MB.settleSuggestions(bals).filter((t) => t.from.id === id || t.to.id === id);
-    })(balances, ctx.uid);
+    const suggestions = (MB.myTransfers || function (bals, id, ex, sp, st) {
+      return MB.settleSuggestions(bals, ex, sp, st).filter((t) => t.from.id === id || t.to.id === id);
+    })(balances, ctx.uid, expenses, splits, settlements);
     const byId = Object.fromEntries(members.map((m) => [m.id, m]));
     const paying = suggestions.filter((t) => t.from.id === ctx.uid);
     const collecting = suggestions.filter((t) => t.to.id === ctx.uid);

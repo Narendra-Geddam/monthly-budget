@@ -333,18 +333,31 @@
     const mine = balances.find((b) => b.id === ctx.uid) || { paidAmt: 0, shareAmt: 0, netAmt: 0 };
     const roomTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
     const net = netLabel(mine.netAmt);
-    const hero = (MB.balanceHeadline || function (id, bals) { const n = (bals || []).find((b) => b.id === id) || { netAmt: 0 }; return { text: MB.netLabel(n.netAmt).text, cls: (n.netAmt > 0.005 ? "is-owed" : (n.netAmt < -0.005 ? "is-owe" : "is-settled")), direction: n.netAmt > 0.005 ? "owed" : (n.netAmt < -0.005 ? "owe" : "settled"), counterpart: null, amount: Math.abs(n.netAmt || 0) }; })(ctx.uid, balances);
+    const hero = (MB.balanceHeadline || function (id, bals) { const n = (bals || []).find((b) => b.id === id) || { netAmt: 0 }; return { text: MB.netLabel(n.netAmt).text, cls: (n.netAmt > 0.005 ? "is-owed" : (n.netAmt < -0.005 ? "is-owe" : "is-settled")), direction: n.netAmt > 0.005 ? "owed" : (n.netAmt < -0.005 ? "owe" : "settled"), counterpart: null, amount: Math.abs(n.netAmt || 0), lines: [] }; })(ctx.uid, balances, expenses, splits, settlements);
     const heroEl = $("hero-status");
     const heroLine = $("hero-line");
+    const heroPairs = $("hero-pairs");
+    const lines = (hero && hero.lines) || [];
     if (heroEl && heroLine) {
       heroEl.className = "card hero-status " + hero.cls;
-      if (hero.counterpart) {
-        const chip = MB.personChip(MB.memberRecord(hero.counterpart.id, members), members, "lg");
-        if (hero.direction === "owed") heroLine.innerHTML = chip + ' <span class="hero-rest">owes you ' + MB.escapeHtml(MB.formatMoney(hero.amount)) + "</span>";
-        else if (hero.direction === "owe") heroLine.innerHTML = 'You owe ' + chip + ' <span class="hero-rest">' + MB.escapeHtml(MB.formatMoney(hero.amount)) + "</span>";
-        else heroLine.textContent = hero.text;
+      if (lines.length > 1) {
+        heroLine.hidden = true;
+        heroLine.textContent = hero.text || "";
+        if (heroPairs) {
+          heroPairs.hidden = false;
+          heroPairs.innerHTML = lines.map((l) => `<li class="hero-pair is-${MB.escapeHtml(l.direction)}"><span class="hero-pair-text">${MB.escapeHtml(l.text)}</span><span class="hero-pair-amt">${MB.escapeHtml(MB.formatMoney(l.amount))}</span></li>`).join("");
+        }
       } else {
-        heroLine.textContent = hero.text;
+        if (heroPairs) { heroPairs.hidden = true; heroPairs.innerHTML = ""; }
+        heroLine.hidden = false;
+        if (hero.counterpart) {
+          const chip = MB.personChip(MB.memberRecord(hero.counterpart.id, members), members, "lg");
+          if (hero.direction === "owed") heroLine.innerHTML = chip + ' <span class="hero-rest">owes you ' + MB.escapeHtml(MB.formatMoney(hero.amount)) + "</span>";
+          else if (hero.direction === "owe") heroLine.innerHTML = 'You owe ' + chip + ' <span class="hero-rest">' + MB.escapeHtml(MB.formatMoney(hero.amount)) + "</span>";
+          else heroLine.textContent = hero.text;
+        } else {
+          heroLine.textContent = hero.text;
+        }
       }
       const sub = $("hero-sub");
       if (sub) {
@@ -363,7 +376,8 @@
       const settle = $("hero-settle");
       if (settle) {
         const settled = hero.direction === "settled" || hero.cls === "is-settled";
-        settle.className = settled ? "text-btn hero-settle-link" : "primary-btn";
+        const userPays = lines.some((l) => l.direction === "owe");
+        settle.className = settled ? "text-btn hero-settle-link" : (userPays ? "primary-btn" : "secondary-btn");
       }
       const remind = $("hero-remind");
       if (remind) {

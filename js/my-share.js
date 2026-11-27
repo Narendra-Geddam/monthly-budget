@@ -34,9 +34,9 @@
       $("pending-note").hidden = false;
       $("pending-note").innerHTML = `You have ${myPending.length} pending share request${myPending.length > 1 ? "s" : ""}. <a href="requests.html">Review them</a>. Pending shares are not included above.`;
     }
-    const suggestions = (MB.myTransfers || function (bals, id) {
-      return MB.settleSuggestions(bals).filter((t) => t.from.id === id || t.to.id === id);
-    })(balances, ctx.uid);
+    const suggestions = (MB.myTransfers || function (bals, id, ex, sp, st) {
+      return MB.settleSuggestions(bals, ex, sp, st).filter((t) => t.from.id === id || t.to.id === id);
+    })(balances, ctx.uid, expenses, splits, settlements);
     $("owe-list").innerHTML = suggestions.length
       ? suggestions.map((t) => MB.oweRowHtml(t, ctx.uid, members)).join("")
       : MB.emptyState({ art: "images/illu-handshake.webp", title: "You're all settled", text: "No outstanding balances with roommates this month." });

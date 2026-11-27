@@ -2635,3 +2635,85 @@ html[data-theme="light"] .status-pill.is-paid { color: var(--getback); backgroun
 html[data-theme="light"] .cat-avatar {
   background: color-mix(in srgb, var(--cat, var(--accent)) 20%, var(--surface));
 }
+
+
+/* ===== v37 pairwise balances and share actions ===== */
+.hero-pairs {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hero-pair {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
+  line-height: 1.35;
+}
+.hero-pair-text {
+  min-width: 0;
+  font-weight: 500;
+  font-size: 1.02rem;
+  color: var(--text);
+}
+.hero-pair-amt {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 1.05rem;
+}
+.hero-pair.is-owe .hero-pair-amt { color: var(--owe); }
+.hero-pair.is-owed .hero-pair-amt { color: var(--getback); }
+.hero-status.is-mixed {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.hero-status.is-mixed .brand-kicker,
+.hero-status.is-mixed .card-sub,
+.hero-status.is-mixed .hero-note {
+  color: var(--muted);
+}
+.hero-status.is-mixed .hero-settle-link { color: var(--link); }
+
+/* Accept / Decline: full-width row, two equal buttons, not stacked. */
+.pending-card {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+.pending-card .btn-row,
+.btn-row.share-respond {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 4px;
+  width: 100%;
+  flex: 0 0 auto;
+}
+.pending-card .btn-row > .primary-btn,
+.pending-card .btn-row > .danger-btn,
+.btn-row.share-respond > .primary-btn,
+.btn-row.share-respond > .danger-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+}
+.pending-card .danger-btn.ghost,
+.btn-row.share-respond .danger-btn.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--owe);
+  font-weight: 600;
+}
+.pending-card .danger-btn.ghost:hover,
+.btn-row.share-respond .danger-btn.ghost:hover {
+  background: color-mix(in srgb, var(--owe) 8%, transparent);
+  text-decoration: none;
+}
