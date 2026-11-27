@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Private income and expenses, only you can see them." />
   <meta name="theme-color" content="#0E1410" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    html, body { background-color: #0E1410; color-scheme: dark; }
+    html[data-theme="light"], html[data-theme="light"] body { background-color: #F4F4F2; color-scheme: light; }
+  </style>
   <script>
     (function () {
       try {
@@ -16,16 +21,19 @@
         document.documentElement.style.colorScheme = t;
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute("content", bg);
+        var cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.setAttribute("content", t);
+        if (document.body) document.body.style.backgroundColor = bg;
       } catch (e) {
         document.documentElement.setAttribute("data-theme", "dark");
         document.documentElement.style.backgroundColor = "#0E1410";
+        document.documentElement.style.colorScheme = "dark";
       }
     })();
   </script>
-  <meta name="color-scheme" content="dark light" />
   <title>Personal · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=38" />
+  <link rel="manifest" href="manifest.json?v=39" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -56,22 +64,29 @@
         </section>
         <p class="card-sub" id="budget-label" style="margin-top:16px"></p>
         <div class="budget-bar" id="budget-bar" hidden><span id="budget-fill"></span></div>
-        <div id="cat-budget-list"></div>
         <a class="primary-btn btn-block" href="add-expense.html?mode=personal" style="margin-top:16px">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
           Add entry
         </a>
       </section>
-      <section class="card is-outline">
-        <h3>Monthly budget</h3>
-        <p class="card-sub">Set an overall limit and optional category limits. You'll get one alert at 80% and one if you go over, each month.</p>
-        <form id="budget-form" style="margin-top:16px">
+      <section class="card is-outline" id="monthly-budget-card">
+        <header class="card-head">
+          <div>
+            <h3>Monthly budget</h3>
+            <p class="card-sub">You'll get one alert at 80% and one if you go over, each month.</p>
+          </div>
+        </header>
+        <div id="budget-read" class="budget-read"></div>
+        <form id="budget-form" hidden>
           <label class="field"><span>Monthly spending limit <em>(optional)</em></span><input type="number" id="per-limit" min="0" step="0.01" placeholder="Leave blank for no limit" /></label>
           <div id="per-cat-rows"></div>
           <p class="form-ok" id="budget-ok" hidden></p>
           <div class="form-actions">
-            <button type="button" class="secondary-btn" id="add-cat-limit">Add limit</button>
-            <button type="submit" class="primary-btn">Save budgets</button>
+            <button type="button" class="text-btn" id="add-cat-limit">+ Add category limit</button>
+          </div>
+          <div class="form-actions" style="margin-top:8px">
+            <button type="submit" class="primary-btn">Save</button>
+            <button type="button" class="secondary-btn" id="budget-cancel">Cancel</button>
           </div>
         </form>
       </section>

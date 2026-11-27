@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
   <meta name="theme-color" content="#0E1410" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    html, body { background-color: #0E1410; color-scheme: dark; }
+    html[data-theme="light"], html[data-theme="light"] body { background-color: #F4F4F2; color-scheme: light; }
+  </style>
   <script>
     (function () {
       try {
@@ -16,16 +21,19 @@
         document.documentElement.style.colorScheme = t;
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute("content", bg);
+        var cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.setAttribute("content", t);
+        if (document.body) document.body.style.backgroundColor = bg;
       } catch (e) {
         document.documentElement.setAttribute("data-theme", "dark");
         document.documentElement.style.backgroundColor = "#0E1410";
+        document.documentElement.style.colorScheme = "dark";
       }
     })();
   </script>
-  <meta name="color-scheme" content="dark light" />
   <title>Member · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=38" />
+  <link rel="manifest" href="manifest.json?v=39" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,20 +48,14 @@
 
     <p><a href="members.html">← All members</a></p>
     <div id="content">
+      <h2 id="member-name" class="page-heading">Member</h2>
       <section class="summary-grid mine">
         <article class="card stat is-paid"><p class="label">Paid</p><p class="value" id="stat-paid">₹0.00</p></article>
         <article class="card stat is-share"><p class="label">Share</p><p class="value" id="stat-share">₹0.00</p></article>
         <article class="card stat" id="stat-net-card"><p class="label" id="stat-net-label">Balance</p><p class="value" id="stat-net">Settled up</p></article>
       </section>
       <p class="stat-note" id="stat-net-note" hidden></p>
-      <section class="card">
-        <header class="card-head"><h3>Expenses they paid</h3></header>
-        <div class="list" id="paid-list"></div>
-      </section>
-      <section class="card">
-        <header class="card-head"><h3>Their shares</h3></header>
-        <div class="list" id="share-list"></div>
-      </section>
+      <p><a class="see-in-activity" id="see-activity" href="activity.html">See in Activity</a></p>
     </div>
   </main>
   <nav id="bottom-nav" class="bottom-nav"></nav>

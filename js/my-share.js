@@ -21,15 +21,7 @@
     $("stat-net").textContent = cap.value;
     $("stat-net-card").className = "card stat " + cap.cls;
     if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", mine);
-
-    const mySplits = splits.filter((s) => s.user_id === ctx.uid && s.status === "accepted");
-    const myPending = splits.filter((s) => s.user_id === ctx.uid && s.status === "pending");
-    $("share-list").innerHTML = mySplits.length ? mySplits.map((s) => {
-      const e = expenses.find((x) => x.id === s.expense_id);
-      if (!e) return "";
-      return typeof MB.expenseRowHtml === "function" ? MB.expenseRowHtml(e, { members, splits: [s] }) : `<a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}"><div><div class="item-title">${escapeHtml(MB.displayName(e.paid_by, members))} paid ${escapeHtml(formatMoney(e.amount))}</div><div class="item-sub">${escapeHtml(e.category || "")} · your share ${escapeHtml(formatMoney(s.share_amount))}</div></div></a>`;
-    }).join("") : MB.emptyState({ art: "images/illu-handshake.webp", title: "No shares this month", text: "When you accept your part of a bill, it will show up here.", href: "add-expense.html", cta: "Add an expense" });
-
+    const myPending = (splits || []).filter((s) => s.user_id === ctx.uid && s.status === "pending");
     if (myPending.length && $("pending-note")) {
       $("pending-note").hidden = false;
       $("pending-note").innerHTML = `You have ${myPending.length} pending share request${myPending.length > 1 ? "s" : ""}. <a href="requests.html">Review them</a>. Pending shares are not included above.`;

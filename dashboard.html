@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
   <meta name="theme-color" content="#0E1410" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    html, body { background-color: #0E1410; color-scheme: dark; }
+    html[data-theme="light"], html[data-theme="light"] body { background-color: #F4F4F2; color-scheme: light; }
+  </style>
   <script>
     (function () {
       try {
@@ -16,16 +21,19 @@
         document.documentElement.style.colorScheme = t;
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute("content", bg);
+        var cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.setAttribute("content", t);
+        if (document.body) document.body.style.backgroundColor = bg;
       } catch (e) {
         document.documentElement.setAttribute("data-theme", "dark");
         document.documentElement.style.backgroundColor = "#0E1410";
+        document.documentElement.style.colorScheme = "dark";
       }
     })();
   </script>
-  <meta name="color-scheme" content="dark light" />
   <title>Dashboard · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=38" />
+  <link rel="manifest" href="manifest.json?v=39" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -50,6 +58,16 @@
           <a class="text-btn hero-settle-link" id="hero-settle" href="settle.html">Settle up</a>
           <a class="forest-btn" id="hero-remind" hidden target="_blank" rel="noopener">Remind</a>
         </div>
+      </section>
+      <section class="card is-outline" id="pending-section" hidden>
+        <header class="card-head">
+          <div>
+            <h2>Waiting for you</h2>
+            <p class="card-sub">Accept or decline your share of a roommate's expense. Only accepted shares count toward balances.</p>
+          </div>
+          <a class="see-all" href="requests.html">See all</a>
+        </header>
+        <div id="pending-list"></div>
       </section>
       <section class="card is-outline month-card" id="month-card">
         <header class="card-head">
@@ -89,34 +107,6 @@
         <div id="join-request-list"></div>
       </section>
       <section class="budget-banner" id="budget-banner" hidden></section>
-      <section class="card is-outline" id="budget-card" hidden>
-        <header class="card-head">
-          <div>
-            <h2>Budget pace</h2>
-            <p class="card-sub" id="budget-label">How this month compares with your room limit.</p>
-          </div>
-        </header>
-        <div class="dash-visuals">
-          <div class="gauge-wrap">
-            <canvas id="budget-gauge" class="gauge-canvas" width="120" height="120" aria-label="Budget used"></canvas>
-          </div>
-          <div>
-            <p class="card-sub" style="margin-bottom:8px">Last 6 months</p>
-            <div class="spark-wrap"><canvas id="spend-spark" width="320" height="72" aria-label="Spending trend"></canvas></div>
-          </div>
-        </div>
-        <div id="cat-budget-list"></div>
-      </section>
-      <section class="card is-outline" id="pending-section" hidden>
-        <header class="card-head">
-          <div>
-            <h2>Waiting for you</h2>
-            <p class="card-sub">Accept or decline your share of a roommate's expense. Only accepted shares count toward balances.</p>
-          </div>
-          <a class="see-all" href="requests.html">See all</a>
-        </header>
-        <div id="pending-list"></div>
-      </section>
       <section class="card is-outline" aria-label="My share this month">
         <header class="card-head">
           <div>
@@ -131,23 +121,7 @@
           <article class="stat" id="stat-net-card"><p class="label" id="stat-net-label">Balance</p><p class="value" id="stat-net">Settled up</p></article>
         </section>
         <p class="stat-note" id="stat-net-note" hidden></p>
-        <h3 style="margin:16px 0 8px">Accepted shares</h3>
-        <div class="list" id="my-accepted-list"></div>
       </section>
-      <div class="charts-grid">
-        <section class="card is-outline">
-          <header class="card-head"><div><h3>Spending by category</h3><p class="card-sub">Where the room's money went this month.</p></div></header>
-          <div class="chart-wrap">
-            <canvas id="category-chart" aria-label="Spending by category"></canvas>
-            <p class="chart-empty" id="category-empty" hidden>No spending this month.</p>
-          </div>
-          <ul class="legend" id="category-legend"></ul>
-        </section>
-        <section class="card is-outline">
-          <header class="card-head"><div><h3>Recent expenses</h3><p class="card-sub">The latest bills added to this room.</p></div><a href="expenses.html">All expenses</a></header>
-          <div class="list" id="recent-list"></div>
-        </section>
-      </div>
     </div>
   </main>
   <nav id="bottom-nav" class="bottom-nav"></nav>

@@ -438,31 +438,11 @@
       MB.renderPendingItems($("pending-list"), pendingItems, members, expenses);
     }
 
-    const myAccepted = (splits || []).filter((s) => s.user_id === ctx.uid && s.status === "accepted");
-    $("my-accepted-list").innerHTML = myAccepted.length ? myAccepted.map((s) => {
-      const e = expenses.find((x) => x.id === s.expense_id);
-      if (!e) return "";
-      return MB.expenseRowHtml(e, { members, splits: [s] });
-    }).join("") : `<p class="empty-quiet">No accepted shares yet. They show up here after you accept your part of a bill.</p>`;
-
-    const recent = (expenses || []).filter((e) => e && e.id).slice(0, 6);
-    $("recent-list").innerHTML = recent.length
-      ? recent.map((e) => MB.expenseRowHtml(e, { members, splits })).join("")
-      : MB.emptyState({ art: "images/illu-receipts.webp", title: dashIsTrip ? "No expenses on this trip" : "No expenses this month", text: dashIsTrip ? "Add a travel expense to start tracking together." : "Add rent, groceries, or a dinner to start tracking together.", href: "add-expense.html", cta: "Add an expense" });
-
     const spent = {};
     (expenses || []).forEach((e) => { if (!e) return; spent[e.category] = (spent[e.category] || 0) + Number(e.amount); });
-    const afterCharts = async () => {
-      try {
-        await MB.loadChartJs();
-      } catch (err) { console.warn(err); }
-      renderChart(spent);
-      try {
-        await renderBudgets(ctx, expenses, roomTotal, spent);
-      } catch (err) { console.warn(err); }
-    };
-    const chartHost = document.querySelector(".charts-grid") || $("category-chart") || $("category-empty");
-    MB.whenVisible(chartHost, afterCharts);
+    try {
+      await renderBudgets(ctx, expenses, roomTotal, spent);
+    } catch (err) { console.warn(err); }
     if (ctx.isAdmin) await renderJoinRequests(ctx.room.id, ctx.joinRequests);
     await renderMyInvites("dash-content");
   }

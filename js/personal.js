@@ -26,8 +26,7 @@
     $("stat-spent").textContent = formatMoney(spent);
 
     const { data: profile } = await MB.client().from("profiles").select("personal_budget_limit").eq("id", ctx.uid).maybeSingle();
-    const limit = profile && profile.personal_budget_limit != null ? Number(profile.personal_budget_limit) : 0;
-    $("per-limit").value = limit > 0 ? String(limit) : "";
+    let limit = profile && profile.personal_budget_limit != null ? Number(profile.personal_budget_limit) : 0;
     const { data: catLimits } = await MB.client().from("personal_category_budgets").select("category, limit_amount").eq("user_id", ctx.uid);
     const limits = catLimits || [];
 
@@ -75,24 +74,59 @@
       $("budget-label").textContent = "No monthly limit set yet.";
     }
 
-    $("cat-budget-list").innerHTML = limits.map((b) => {
-      const s = byCat[b.category] || 0;
-      const p = Math.round((s / Number(b.limit_amount)) * 100);
-      return `<div class="cat-budget-row"><div class="item-sub"><span>${escapeHtml(b.category)}</span><span>${escapeHtml(formatMoney(s))} of ${escapeHtml(formatMoney(b.limit_amount))} (${p}%)</span></div><div class="budget-bar"><span class="${toneClass(p)}" style="width:${Math.min(100, p)}%"></span></div></div>`;
-    }).join("");
-
+    const readEl = $("budget-read");
+    const formEl = $("budget-form");
     const host = $("per-cat-rows");
+    function hasLimits() {
+      return limit > 0 || (limits && limits.length);
+    }
     function catRow(category, amount) {
       const wrap = document.createElement("div");
       wrap.className = "split-row";
       wrap.style.margin = "8px 0";
       wrap.innerHTML = `<select class="select" data-cat>${EXPENSE_CATS.map((c) => `<option value="${escapeHtml(c)}" ${c === category ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}</select>
-        <input type="number" min="0.01" step="0.01" data-amt placeholder="Limit" value="${amount != null ? escapeHtml(String(amount)) : ""}" />`;
+        <input type="number" min="0.01" step="0.01" data-amt placeholder="Limit" value="${amount != null ? escapeHtml(String(amount)) : ""}" />
+        <button type="button" class="text-btn" data-remove>Remove</button>`;
+      wrap.querySelector("[data-remove]").addEventListener("click", () => wrap.remove());
       return wrap;
     }
-    host.innerHTML = "";
-    limits.forEach((b) => host.appendChild(catRow(b.category, b.limit_amount)));
+    function fillForm() {
+      $("per-limit").value = limit > 0 ? String(limit) : "";
+      host.innerHTML = "";
+      (limits || []).forEach((b) => host.appendChild(catRow(b.category, b.limit_amount)));
+      $("budget-ok").hidden = true;
+    }
+    function showRead() {
+      formEl.hidden = true;
+      readEl.hidden = false;
+      if (!hasLimits()) {
+        readEl.innerHTML = `<div class="budget-empty"><p class="card-sub">No limits set</p><button type="button" class="secondary-btn" id="budget-set">Set a limit</button></div>`;
+        const setBtn = $("budget-set");
+        if (setBtn) setBtn.addEventListener("click", showEdit);
+        return;
+      }
+      const catHtml = (limits || []).map((b) => {
+        const s = byCat[b.category] || 0;
+        const p = Math.round((s / Number(b.limit_amount)) * 100);
+        return `<div class="cat-budget-row"><div class="item-sub"><span>${escapeHtml(b.category)}</span><span>${escapeHtml(formatMoney(s))} of ${escapeHtml(formatMoney(b.limit_amount))}</span></div><div class="budget-bar"><span class="${toneClass(p)}" style="width:${Math.min(100, p)}%"></span></div></div>`;
+      }).join("");
+      readEl.innerHTML = `
+        ${limit > 0 ? `<p class="budget-read-limit">Monthly limit ${escapeHtml(formatMoney(limit))}</p>` : `<p class="card-sub">No overall monthly limit</p>`}
+        ${catHtml || ""}
+        <button type="button" class="secondary-btn" id="budget-edit">Edit limits</button>`;
+      const editBtn = $("budget-edit");
+      if (editBtn) editBtn.addEventListener("click", showEdit);
+    }
+    function showEdit() {
+      readEl.hidden = true;
+      formEl.hidden = false;
+      fillForm();
+      $("per-limit").focus();
+    }
+    showRead();
     $("add-cat-limit").addEventListener("click", () => host.appendChild(catRow(EXPENSE_CATS[0], "")));
+    const cancel = $("budget-cancel");
+    if (cancel) cancel.addEventListener("click", () => showRead());
     $("budget-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const raw = $("per-limit").value.trim();
@@ -111,9 +145,20 @@
         if (iErr) return MB.showPageError(errorMessage(iErr));
       }
       await MB.client().rpc("evaluate_personal_budgets", { p_user_id: ctx.uid, p_month: ctx.month });
-      $("budget-ok").hidden = false;
-      $("budget-ok").textContent = "Personal budgets saved.";
-      location.reload();
+      limit = raw === "" ? 0 : Number(raw);
+      limits.length = 0;
+      next.forEach((b) => limits.push(b));
+      if (limit > 0) {
+        const pct = Math.round((spent / limit) * 100);
+        $("budget-label").textContent = formatMoney(spent) + " of " + formatMoney(limit) + " (" + pct + "%)";
+        $("budget-bar").hidden = false;
+        $("budget-fill").style.width = Math.min(100, pct) + "%";
+        $("budget-fill").className = toneClass(pct);
+      } else {
+        $("budget-label").textContent = "No monthly limit set yet.";
+        $("budget-bar").hidden = true;
+      }
+      showRead();
     });
 
     $("tx-list").innerHTML = rows.length ? rows.map((r) => {

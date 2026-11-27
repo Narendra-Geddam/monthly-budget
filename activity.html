@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="A live feed of expenses, payments, and room updates." />
   <meta name="theme-color" content="#0E1410" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    html, body { background-color: #0E1410; color-scheme: dark; }
+    html[data-theme="light"], html[data-theme="light"] body { background-color: #F4F4F2; color-scheme: light; }
+  </style>
   <script>
     (function () {
       try {
@@ -16,16 +21,19 @@
         document.documentElement.style.colorScheme = t;
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute("content", bg);
+        var cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.setAttribute("content", t);
+        if (document.body) document.body.style.backgroundColor = bg;
       } catch (e) {
         document.documentElement.setAttribute("data-theme", "dark");
         document.documentElement.style.backgroundColor = "#0E1410";
+        document.documentElement.style.colorScheme = "dark";
       }
     })();
   </script>
-  <meta name="color-scheme" content="dark light" />
   <title>Activity · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=38" />
+  <link rel="manifest" href="manifest.json?v=39" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,12 +45,13 @@
 <body>
   <header id="topbar" class="topbar"></header>
   <main class="page" id="main">
+    <div id="activity-home">
     <section class="card is-outline activity-card">
       <header class="card-head activity-head">
         <div>
           <div class="activity-title-row">
             <h2>Activity</h2>
-            <a class="activity-expenses-link" href="expenses.html">Expenses</a>
+            <a class="activity-expenses-link" href="activity.html?kind=expenses">Expenses</a>
           </div>
           <p class="card-sub">Newest first, like a payment feed.</p>
         </div>
@@ -56,17 +65,30 @@
           <span>Type</span>
           <select id="kind-filter" class="select pill-select" aria-label="Type"></select>
         </label>
+        <label class="field">
+          <span>Person</span>
+          <select id="person-filter" class="select pill-select" aria-label="Person"></select>
+        </label>
       </div>
     </section>
     <div id="activity-feed" class="activity-feed"></div>
     <div id="activity-more-wrap" class="activity-more-wrap" hidden>
       <button type="button" class="secondary-btn" id="activity-more">Load more</button>
     </div>
+    </div>
+    <section id="activity-detail" class="activity-detail" hidden>
+      <header class="detail-top">
+        <button type="button" class="back-btn" id="detail-back" aria-label="Back"></button>
+        <h1 class="detail-heading" id="detail-heading">Details</h1>
+      </header>
+      <div id="detail-body" class="detail-body"></div>
+    </section>
   </main>
   <nav id="bottom-nav" class="bottom-nav"></nav>
   <script defer src="config.js"></script>
   <script defer src="vendor/supabase.min.js"></script>
   <script defer src="js/common.js"></script>
+  <script defer src="js/activity-detail.js"></script>
   <script defer src="js/activity.js"></script>
 </body>
 </html>

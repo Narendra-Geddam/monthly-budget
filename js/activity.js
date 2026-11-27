@@ -6,6 +6,7 @@
     { id: "all", label: "All" },
     { id: "expenses", label: "Expenses" },
     { id: "payments", label: "Payments" },
+    { id: "shares", label: "My shares" },
     { id: "members", label: "Members" },
     { id: "alerts", label: "Alerts" },
     { id: "mine", label: "Mine" },
@@ -15,6 +16,7 @@
   let people = new Map();
   let scope = "all";
   let kind = "all";
+  let person = "";
   let cursor = null;
   let cursorId = null;
   let hasMore = false;
@@ -284,7 +286,7 @@
     const d = detail(row);
     const parts = [];
     if (d.category) parts.push(d.category);
-    const t = relativeTime(row.created_at);
+    const t = (MB.formatEventTime ? MB.formatEventTime(row.created_at) : relativeTime(row.created_at));
     if (t) parts.push(t);
     if (row.room_name) parts.push(row.room_name);
     return parts.join(" · ");
@@ -292,14 +294,15 @@
 
   function hrefFor(row) {
     const id = row.target_id;
-    if (row.target_type === "expense" && id && row.action !== "expense_deleted") return "add-expense.html?id=" + encodeURIComponent(id);
-    if (row.target_type === "settlement") return "settle.html";
-    if (row.target_type === "personal" && id && row.action !== "personal_deleted") return "add-expense.html?mode=personal&id=" + encodeURIComponent(id);
+    const href = MB.activityDetailHref;
+    if (row.target_type === "expense" && id) return href ? href("expense", id) : ("add-expense.html?id=" + encodeURIComponent(id));
+    if (row.target_type === "settlement" && id) return href ? href("settlement", id) : "settle.html";
+    if (row.target_type === "personal" && id) return href ? href("personal", id) : ("add-expense.html?mode=personal&id=" + encodeURIComponent(id));
+    if (row.id && href) return href("event", row.id);
     if (row.action && row.action.indexOf("budget") === 0) return row.room_id ? "analytics.html" : "personal.html";
     if (row.target_type === "user" || (row.action && row.action.indexOf("member") === 0) || row.action === "join_approved") return "members.html";
     if (row.room_id && (row.target_type === "room" || row.action === "settings_updated" || row.action === "code_reset")) return "room.html";
-    if (row.room_id) return "dashboard.html";
-    return "personal.html";
+    return "activity.html";
   }
 
   function media(row) {
@@ -349,13 +352,13 @@
               ? `<div class="btn-row compact"><button type="button" class="text-btn is-danger" data-undo="${escapeHtml(sett.id)}">Undo</button></div>`
               : "";
             const cls = "list-item activity-item" + (typ === "member" ? " is-member" : "") + (hasImp ? "" : " is-neutral") + (showUndo ? " has-undo" : "");
+            const label = sentence(row);
             return `<div class="${cls}" data-href="${escapeHtml(href)}">
+              ${MB.rowLink ? MB.rowLink(href, label) : `<a class="row-link" href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}"></a>`}
               ${media(row)}
               <div class="activity-copy">
-                <a class="activity-main" href="${escapeHtml(href)}">
-                  <div class="item-title">${escapeHtml(sentence(row))}</div>
-                  <div class="item-sub">${escapeHtml(subline(row))}</div>
-                </a>
+                <div class="item-title">${escapeHtml(label)}</div>
+                <div class="item-sub">${escapeHtml(subline(row))}</div>
                 ${thumb}
                 ${undo}
               </div>
@@ -402,6 +405,7 @@
       scopeEl.dataset.bound = "1";
       scopeEl.addEventListener("change", () => {
         scope = scopeEl.value;
+        syncFilterUrl();
         reload();
       });
     }
@@ -409,9 +413,42 @@
       kindEl.dataset.bound = "1";
       kindEl.addEventListener("change", () => {
         kind = kindEl.value;
+        syncFilterUrl();
         reload();
       });
     }
+    const personEl = $("person-filter");
+    if (personEl) {
+      const opts = [{ id: "", label: "Anyone" }];
+      const seen = new Set();
+      const sourceRooms = scope === "all" ? rooms : rooms.filter((r) => r.id === scope);
+      sourceRooms.forEach((r) => {});
+      people.forEach((p, id) => {
+        if (!id || seen.has(id) || id === "undefined") return;
+        seen.add(id);
+        opts.push({ id, label: p.display_name || "Member" });
+      });
+      if (!opts.some((o) => o.id === person)) person = "";
+      personEl.innerHTML = opts.map((o) =>
+        `<option value="${escapeHtml(o.id)}"${person === o.id ? " selected" : ""}>${escapeHtml(o.label)}</option>`
+      ).join("");
+      if (!personEl.dataset.bound) {
+        personEl.dataset.bound = "1";
+        personEl.addEventListener("change", () => {
+          person = personEl.value;
+          syncFilterUrl();
+          reload();
+        });
+      }
+    }
+  }
+  function syncFilterUrl() {
+    const q = new URLSearchParams(location.search);
+    if (kind && kind !== "all") q.set("kind", kind); else q.delete("kind");
+    if (person) q.set("person", person); else q.delete("person");
+    if (scope && scope !== "all") q.set("room", scope); else q.delete("room");
+    const next = location.pathname + (q.toString() ? "?" + q.toString() : "") + location.hash;
+    history.replaceState(null, "", next);
   }
 
   async function loadPage(reset) {
@@ -423,6 +460,7 @@
         p_cursor: reset ? null : cursor,
         p_cursor_id: reset ? null : cursorId,
         p_limit: 30,
+        p_person_id: person || null,
       };
       if (scope === "all") {
         params.p_room_ids = null;
@@ -502,7 +540,13 @@
     if (!ctx) return;
     rooms = (ctx.rooms || []).filter((r) => !r.archived_at);
     rememberPeople(ctx.members);
+    const q = new URLSearchParams(location.search);
+    if (q.get("kind")) kind = q.get("kind");
+    if (q.get("person")) person = q.get("person");
+    if (q.get("room") && (q.get("room") === "personal" || rooms.some((r) => r.id === q.get("room")))) scope = q.get("room");
+    if (q.get("scope") && (q.get("scope") === "personal" || rooms.some((r) => r.id === q.get("scope")))) scope = q.get("scope");
     paintFilters();
+    if (MB.bindActivityDetail) MB.bindActivityDetail();
     $("activity-more").addEventListener("click", () => loadPage(false));
     const sentinel = $("activity-more-wrap");
     if ("IntersectionObserver" in window && sentinel) {
@@ -511,7 +555,11 @@
       }, { rootMargin: "160px" });
       io.observe(sentinel);
     }
+    if (MB.parseActivityHash && MB.parseActivityHash()) {
+      MB.routeActivityDetail();
+    }
     await loadPage(true);
+    if (MB.parseActivityHash && MB.parseActivityHash()) MB.routeActivityDetail();
   }
   (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

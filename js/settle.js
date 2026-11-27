@@ -43,7 +43,12 @@
       } else {
         actions = `<p class="transfer-wait">Waiting for them to pay</p>`;
       }
+      const otherId = iPay ? toId : fromId;
+      const cardHref = pending && pending.id && MB.activityDetailHref
+        ? MB.activityDetailHref("settlement", pending.id)
+        : (MB.activityFilterHref ? MB.activityFilterHref({ kind: "payments", person: otherId }) : ("activity.html?kind=payments&person=" + encodeURIComponent(otherId)));
       return `<article class="transfer-card" data-from="${escapeHtml(fromId)}" data-to="${escapeHtml(toId)}" data-amount="${escapeHtml(String(t.amount))}">
+        ${MB.rowLink ? MB.rowLink(cardHref, otherName + " · " + role) : ""}
         <div class="transfer-flow">
           <div class="suggest-who">
             ${MB.avatarHtml ? MB.avatarHtml(other, "md") : MB.personChip(other, members, "md")}
@@ -216,62 +221,32 @@
       }
     });
 
-    const mineHistory = (settlements || []).filter((s) => s.from_user === ctx.uid || s.to_user === ctx.uid);
-    const historyBits = await Promise.all(mineHistory.map(async (s) => {
-      const pending = s.status === "pending";
-      const rejected = s.status === "rejected";
-      const voided = s.status === "voided";
-      const canConfirm = pending && s.to_user === ctx.uid;
-      const canUndo = !pending && !rejected && !voided && MB.canUndoSettlement && MB.canUndoSettlement(s, ctx.uid, ctx.room);
-      const iPaid = s.from_user === ctx.uid;
-      const status = pending
-        ? (iPaid ? " · waiting for them to confirm" : " · waiting for you to confirm")
-        : (rejected ? " · not received" : (voided ? " · undone" : " · confirmed"));
-      let thumb = "";
-      if (s.proof_path) {
-        try {
-          const url = await MB.signedReceiptUrl(s.proof_path);
-          thumb = url ? MB.proofThumbHtml(url, "Payment screenshot") : "";
-        } catch (e) { thumb = ""; }
-      }
-      const title = iPaid
-        ? `You paid ${MB.personChip(s.to_user, members, "sm")}`
-        : `${MB.personChip(s.from_user, members, "sm")} paid you`;
-      const actions = canConfirm
-        ? `<div class="btn-row compact"><button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}">Confirm received</button><button type="button" class="text-btn" data-reject="${escapeHtml(s.id)}">Didn't get it</button></div>`
-        : (canUndo ? `<div class="btn-row compact"><button type="button" class="text-btn is-danger" data-undo="${escapeHtml(s.id)}">Undo</button></div>` : "");
+    const pendingIncoming = (settlements || []).filter((s) => s.status === "pending" && s.to_user === ctx.uid);
+    const historyBits = pendingIncoming.map((s) => {
+      const href = (MB.activityDetailHref && MB.activityDetailHref("settlement", s.id)) || ("settle.html?sid=" + encodeURIComponent(s.id));
       return `<div class="list-item">
+        ${MB.rowLink ? MB.rowLink(href, "Payment details") : `<a class="row-link" href="${escapeHtml(href)}" aria-label="Payment details"></a>`}
         <div class="item-icon">₹</div>
         <div>
-          <div class="item-title">${title}</div>
-          <div class="item-sub">${escapeHtml(MB.friendlyDate(s.date))}${s.note ? " · " + escapeHtml(s.note) : ""}${status}</div>
-          ${thumb}
-          ${actions}
+          <div class="item-title">${MB.personChip(s.from_user, members, "sm")} paid you</div>
+          <div class="item-sub">${escapeHtml(MB.friendlyDate(s.date))}${s.note ? " · " + escapeHtml(s.note) : ""} · waiting for you to confirm</div>
+          <div class="btn-row compact"><button type="button" class="text-btn" data-confirm="${escapeHtml(s.id)}">Confirm received</button><button type="button" class="text-btn" data-reject="${escapeHtml(s.id)}">Didn't get it</button></div>
         </div>
-        <div class="item-amt ${pending || rejected || voided ? "" : "pos"}">${escapeHtml(formatMoney(s.amount))}</div>
+        <div class="item-amt">${escapeHtml(formatMoney(s.amount))}</div>
       </div>`;
-    }));
-    $("history").innerHTML = historyBits.length ? historyBits.join("") : MB.emptyState({ art: "images/illu-house.webp", title: "No payments yet", text: "When you pay a roommate, or someone pays you, the record will show up here." });
-    if (MB.bindProofLightbox) MB.bindProofLightbox($("history"));
-    $("history").querySelectorAll("[data-confirm]").forEach((btn) => {
-      btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-confirm"), true));
     });
-    $("history").querySelectorAll("[data-reject]").forEach((btn) => {
-      btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-reject"), false));
-    });
-    $("history").querySelectorAll("[data-undo]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-undo");
-        const row = mineHistory.find((s) => s.id === id);
-        if (!row || !MB.promptUndoSettlement) return;
-        try {
-          const ok = await MB.promptUndoSettlement(row, members);
-          if (ok) location.reload();
-        } catch (err) {
-          if (MB.showToast) MB.showToast(errorMessage(err), "error");
-        }
+    const pendingCard = $("pending-confirm");
+    if (pendingCard) pendingCard.hidden = !historyBits.length;
+    const hist = $("history");
+    if (hist) {
+      hist.innerHTML = historyBits.join("");
+      hist.querySelectorAll("[data-confirm]").forEach((btn) => {
+        btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-confirm"), true));
       });
-    });
+      hist.querySelectorAll("[data-reject]").forEach((btn) => {
+        btn.addEventListener("click", () => respondSettlement(btn.getAttribute("data-reject"), false));
+      });
+    }
   }
   (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();

@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=38";
+  const MANIFEST_HREF = "manifest.json?v=39";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -310,6 +310,7 @@
     arrowIn: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M16 8 8 16M14 16H8v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     wa: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 19 6.2 15.4A7.5 7.5 0 1 1 8.6 17.8L5 19Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 9.6c.2-.5.3-.5.6-.5h.5c.2 0 .4.1.5.4l.5 1.2c.1.2 0 .4-.1.6l-.4.5c-.1.1-.1.3 0 .4.3.6.8 1.1 1.4 1.4.2.1.3.1.4 0l.5-.4c.2-.2.4-.2.6-.1l1.2.5c.3.1.4.3.4.5v.5c0 .3 0 .4-.5.6A5 5 0 0 1 11 14.8 5.8 5.8 0 0 1 9.2 9.6Z" fill="currentColor"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    back: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     close: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     gear: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M6.1 17.9l1.6-1.6M16.3 7.7l1.6-1.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   };
@@ -1008,6 +1009,12 @@
     }
     return list[0];
   }
+  function rowLink(href, label) {
+    if (!href) return "";
+    const lbl = label ? ` aria-label="${escapeHtml(label)}"` : "";
+    return `<a class="row-link" href="${escapeHtml(href)}"${lbl}></a>`;
+  }
+
   function oweRowHtml(t, userId, members) {
     if (!t || !t.from || !t.to) return "";
     const mine = t.from.id === userId;
@@ -1016,7 +1023,11 @@
     const name = displayName(rec.id || other.id, members) || other.name || other.display_name || "Member";
     const role = mine ? "you owe" : "owes you";
     const cls = mine ? "neg" : "pos";
+    const href = (MB.activityFilterHref && rec.id)
+      ? MB.activityFilterHref({ person: rec.id })
+      : (rec.id ? ("activity.html?person=" + encodeURIComponent(rec.id)) : "activity.html");
     return `<div class="suggest">
+      ${rowLink(href, name + " · " + role)}
       <div class="suggest-who">
         ${avatarHtml(rec, "sm")}
         <div class="suggest-copy">
@@ -1123,7 +1134,53 @@
     const now = new Date(today + "T00:00:00");
     return d.getFullYear() === now.getFullYear() ? label : label + " " + d.getFullYear();
   }
-  function firstName(name) {
+  function dayKeyInZone(iso, zone) {
+    const d = iso instanceof Date ? iso : new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    } catch (e) {
+      return localDayKey(d);
+    }
+  }
+  function clockInZone(iso, zone) {
+    const d = iso instanceof Date ? iso : new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    try {
+      const parts = new Intl.DateTimeFormat("en-IN", { timeZone: zone, hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d);
+      const get = (type) => ((parts.find((p) => p.type === type) || {}).value || "");
+      const hour = String(Number(get("hour") || "0") || 12);
+      const minute = get("minute") || "00";
+      const ap = String(get("dayPeriod") || "pm").toLowerCase().replace(/\./g, "").trim();
+      return hour + ":" + minute + " " + (ap || "pm");
+    } catch (e) {
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, "0");
+      const ap = h >= 12 ? "pm" : "am";
+      h = h % 12 || 12;
+      return h + ":" + m + " " + ap;
+    }
+  }
+  function formatEventTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const zone = "Asia/Kolkata";
+    const key = dayKeyInZone(d, zone);
+    const today = dayKeyInZone(new Date(), zone);
+    const todayNoon = new Date(today + "T12:00:00+05:30");
+    const yest = dayKeyInZone(new Date(todayNoon.getTime() - 86400000), zone);
+    const time = clockInZone(d, zone);
+    if (key === today) return "Today " + time;
+    if (key === yest) return "Yesterday " + time;
+    const bits = key.split("-");
+    if (bits.length !== 3) return time;
+    const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const label = Number(bits[2]) + " " + mon[Number(bits[1]) - 1];
+    const withYear = bits[0] !== today.slice(0, 4) ? (label + " " + bits[0]) : label;
+    return withYear + ", " + time;
+  }
+    function firstName(name) {
     const s = String(name == null ? "" : name).trim();
     if (!s) return "Someone";
     const token = s.split(/\s+/)[0];
@@ -1307,7 +1364,7 @@
     const members = o.members || [];
     const allSplits = o.splits || [];
     const splits = allSplits.filter((s) => s && s.expense_id === expense.id);
-    const href = o.href || ("add-expense.html?id=" + expense.id);
+    const href = o.href || ((MB.activityDetailHref && expense.id) ? MB.activityDetailHref("expense", expense.id) : ("add-expense.html?id=" + expense.id));
     const receipt = o.receipt || "";
     const payer = memberRecord(expense.paid_by, members);
     const minePaid = expense.paid_by === uid();
@@ -1395,7 +1452,9 @@
       const e = r.expense;
       if (!e || !e.id) return "";
       const payer = memberRecord(e.paid_by, members);
+      const pendingHref = (MB.activityDetailHref && MB.activityDetailHref("expense", e.id)) || ("add-expense.html?id=" + e.id);
       return `<article class="pending-card" data-expense-id="${escapeHtml(e.id)}">
+        ${rowLink(pendingHref, e.description)}
         <div>
           <div class="item-title">${escapeHtml(e.description)}</div>
           <div class="item-sub">${categoryChip(e.category)} · ${escapeHtml(friendlyDate(e.date))} · paid by ${personChip(payer, members, "sm")}</div>
@@ -1844,7 +1903,7 @@
           moreRow("my-share.html", ICONS.wallet, "My share", null, "is-lime"),
           moreRow("settle.html", ICONS.arrowIn, "Settle up", null, "is-forest"),
           moreRow("requests.html", ICONS.list, "Share requests", "data-pending-badge", "is-mint"),
-          moreRow("expenses.html", ICONS.list, "All expenses", null, "is-lime"),
+          moreRow("activity.html?kind=expenses", ICONS.list, "All expenses", null, "is-lime"),
         ].join(""))}
         ${moreSection("Room", [
           moreAction("more-switch-group", ICONS.swap, "Switch group", "is-lime"),
@@ -3424,9 +3483,9 @@
     client, uid, currentPage, configured,
     getActiveRoomId, setActiveRoomId,
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
-    memberBalances, settleSuggestions, cancelDebtCycles, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
+    memberBalances, settleSuggestions, cancelDebtCycles, myTransfers, pendingSettlementFor, oweRowHtml, rowLink, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryAvatarHtml, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet, confirmAction, canUndoSettlement, voidSettlement, promptUndoSettlement,
+    friendlyDate, formatEventTime, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryAvatarHtml, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet, confirmAction, canUndoSettlement, voidSettlement, promptUndoSettlement,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, pendingWithExpense, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,

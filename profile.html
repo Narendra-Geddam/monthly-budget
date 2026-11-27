@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Shared roommate expenses for your bachelor room." />
   <meta name="theme-color" content="#0E1410" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    html, body { background-color: #0E1410; color-scheme: dark; }
+    html[data-theme="light"], html[data-theme="light"] body { background-color: #F4F4F2; color-scheme: light; }
+  </style>
   <script>
     (function () {
       try {
@@ -16,16 +21,19 @@
         document.documentElement.style.colorScheme = t;
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute("content", bg);
+        var cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.setAttribute("content", t);
+        if (document.body) document.body.style.backgroundColor = bg;
       } catch (e) {
         document.documentElement.setAttribute("data-theme", "dark");
         document.documentElement.style.backgroundColor = "#0E1410";
+        document.documentElement.style.colorScheme = "dark";
       }
     })();
   </script>
-  <meta name="color-scheme" content="dark light" />
   <title>Profile · Monthly Budget</title>
   <link rel="icon" href="favicon.svg?v=22" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.json?v=38" />
+  <link rel="manifest" href="manifest.json?v=39" />
   <link rel="preconnect" href="https://kjnzcetsidsvnrtybicl.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://kjnzcetsidsvnrtybicl.supabase.co" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />

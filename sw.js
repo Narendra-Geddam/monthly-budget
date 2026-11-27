@@ -1,5 +1,5 @@
 /* Monthly Budget service worker: versioned cache + web push. */
-const SHELL_CACHE = "mb-shell-v38";
+const SHELL_CACHE = "mb-shell-v39";
 // Supabase URL, anon key and VAPID public key, for re-registering rotated push subscriptions.
 try { self.window = self; importScripts("config.js"); } catch (e) { /* optional */ }
 const BASE = (self.location.pathname || "").replace(/\/sw\.js$/, "");
@@ -16,6 +16,7 @@ const SHELL_FILES = [
   "js/common.js",
   "js/dashboard.js",
   "js/activity.js",
+  "js/activity-detail.js",
   "js/personal.js",
   "js/analytics.js",
   "js/notifications.js",

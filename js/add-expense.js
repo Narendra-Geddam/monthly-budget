@@ -396,7 +396,7 @@
     }
     const { error } = await MB.client().rpc("delete_expense", { p_expense_id: editing.id });
     if (error) return showError("form-error", errorMessage(error));
-    location.href = "expenses.html";
+    location.href = "activity.html?kind=expenses";
   }
 
 

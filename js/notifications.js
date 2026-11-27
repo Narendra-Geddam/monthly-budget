@@ -198,7 +198,7 @@
           ];
         }
       }
-      href = sett ? ("settle.html?sid=" + encodeURIComponent(sett.id)) : (n.link || "settle.html");
+      href = (MB.activityDetailHref && sett && sett.id ? MB.activityDetailHref("settlement", sett.id) : (n.link || "activity.html"));
     } else if (type === "settlement_confirmed") {
       if (sett && sett.status === "voided") {
         title = actorName + " confirmed " + money(amount);
@@ -208,11 +208,11 @@
         title = actorName + " confirmed " + money(amount);
         sub = "It now counts toward balances.";
       }
-      href = n.link || "settle.html";
+      href = (MB.activityDetailHref && sett && sett.id ? MB.activityDetailHref("settlement", sett.id) : (n.link || "activity.html"));
     } else if (type === "settlement_rejected") {
       title = actorName + " says the payment of " + money(amount) + " was not received";
       sub = "You can mark it paid again if you still sent it.";
-      href = n.link || "settle.html";
+      href = (MB.activityDetailHref && sett && sett.id ? MB.activityDetailHref("settlement", sett.id) : (n.link || "activity.html"));
     } else if (type === "settlement_voided") {
       if (sett && sett.to_user === uid && sett.from_user === actor.id) {
         title = actorName + " undid the " + money(amount) + " payment to you";
@@ -221,7 +221,7 @@
       }
       sub = "It no longer counts toward balances.";
       state = "voided";
-      href = n.link || "settle.html";
+      href = (MB.activityDetailHref && sett && sett.id ? MB.activityDetailHref("settlement", sett.id) : (n.link || "activity.html"));
     } else if (type === "share_request") {
       const total = expense ? Number(expense.amount) : (payload.amount != null ? Number(payload.amount) : null);
       const totalBit = total != null ? " " + money(total) : "";
@@ -239,22 +239,24 @@
         sub = "Tap Accept if this looks right.";
         if (expense) actions = [{ label: "Accept", kind: "primary", act: "accept", id: expense.id }];
       }
-      href = expense ? ("requests.html?eid=" + encodeURIComponent(expense.id)) : (n.link || "requests.html");
+      href = (MB.activityDetailHref && expense && expense.id ? MB.activityDetailHref("expense", expense.id) : (n.link || "activity.html"));
     } else if (type === "share_force_accepted") {
       if (actor.id && actor.id === uid) title = "You accepted your " + expName + " share";
       else title = actorName + " accepted your " + expName + " share for you";
       sub = shareAmt != null ? "Your share is " + money(shareAmt) + "." : "";
-      href = n.link || "my-share.html";
+      href = (MB.activityDetailHref && expense && expense.id ? MB.activityDetailHref("expense", expense.id) : (n.link || "activity.html"));
     } else if (type === "share_declined") {
       title = actorName + " declined a share of " + expName;
       sub = "You can edit the split.";
-      href = n.link || "expenses.html";
+      href = (MB.activityDetailHref && expense && expense.id ? MB.activityDetailHref("expense", expense.id) : (n.link || "activity.html"));
     } else if (type === "expense_edited") {
       title = actorName + " updated " + expName;
       sub = "An expense that includes you was changed.";
+      href = (MB.activityDetailHref && expense && expense.id ? MB.activityDetailHref("expense", expense.id) : (n.link || "activity.html"));
     } else if (type === "expense_deleted") {
       title = actorName + " deleted " + expName;
       sub = "An expense that included you was removed.";
+      href = (MB.activityDetailHref && expense && expense.id ? MB.activityDetailHref("expense", expense.id) : (n.link || "activity.html"));
     } else if (type === "join_request") {
       title = actorName + " asked to join";
       sub = "Approve or decline this in Members.";
@@ -307,7 +309,9 @@
     } else if (timeHtml) {
       subHtml = `<div class="item-sub notif-when">${timeHtml}</div>`;
     }
-    return `<article class="list-item notif-item ${unread ? "is-unread" : ""} ${view.actions.length ? "has-actions" : ""}" data-id="${escapeHtml(n.id)}" data-href="${escapeHtml(view.href || "dashboard.html")}">
+    const href = view.href || "dashboard.html";
+    return `<article class="list-item notif-item ${unread ? "is-unread" : ""} ${view.actions.length ? "has-actions" : ""}" data-id="${escapeHtml(n.id)}" data-href="${escapeHtml(href)}">
+      ${MB.rowLink ? MB.rowLink(href, view.title) : `<a class="row-link" href="${escapeHtml(href)}" aria-label="${escapeHtml(view.title)}"></a>`}
       <span class="activity-avatar notif-avatar">${MB.avatarHtml(view.actor, "md")}<span class="activity-badge is-${escapeHtml(view.kind)}" aria-hidden="true">${badgeSvg(view.kind)}</span>${unread ? `<span class="notif-dot" title="Unread" aria-label="Unread"></span>` : ""}</span>
       <div class="notif-copy">
         <div class="item-title">${escapeHtml(view.title)}</div>
@@ -394,13 +398,17 @@
 
     function bind() {
       $("notif-list").querySelectorAll(".notif-item").forEach((el) => {
-        el.addEventListener("click", async (e) => {
-          if (e.target.closest(".notif-action")) return;
+        const go = async (e) => {
+          if (e.target.closest(".notif-action, button, .btn-row")) return;
+          if (e && e.preventDefault) e.preventDefault();
           const id = el.getAttribute("data-id");
           const href = el.getAttribute("data-href") || "dashboard.html";
           try { await MB.client().rpc("mark_notifications_read", { p_ids: [id] }); } catch (err) { /* still navigate */ }
           location.href = href;
-        });
+        };
+        el.addEventListener("click", go);
+        const link = el.querySelector("a.row-link");
+        if (link) link.addEventListener("click", go);
       });
       $("notif-list").querySelectorAll(".notif-action").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
