@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=37";
+  const MANIFEST_HREF = "manifest.json?v=38";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -741,20 +741,20 @@
     const sentTo = row.sentTo || [];
     if ((row.receivedAmt || 0) > 0.004) {
       if (receivedFrom.length === 1) {
-        parts.push(receivedFrom[0].name + " already paid you " + formatMoney(fromCents(receivedFrom[0].amount)));
+        parts.push("These balances already include the " + formatMoney(fromCents(receivedFrom[0].amount)) + " " + receivedFrom[0].name + " paid you");
       } else if (receivedFrom.length) {
-        parts.push("You've already received " + formatMoney(row.receivedAmt) + " from " + andNames(receivedFrom.map((p) => p.name)));
+        parts.push("These balances already include the " + formatMoney(row.receivedAmt) + " you've received from " + andNames(receivedFrom.map((p) => p.name)));
       } else {
-        parts.push("You've already received " + formatMoney(row.receivedAmt));
+        parts.push("These balances already include the " + formatMoney(row.receivedAmt) + " you've received");
       }
     }
     if ((row.sentAmt || 0) > 0.004) {
       if (sentTo.length === 1) {
-        parts.push("You already paid " + formatMoney(fromCents(sentTo[0].amount)) + " to " + sentTo[0].name);
+        parts.push("These balances already include the " + formatMoney(fromCents(sentTo[0].amount)) + " you paid " + sentTo[0].name);
       } else if (sentTo.length) {
-        parts.push("You already paid " + formatMoney(row.sentAmt) + " to " + andNames(sentTo.map((p) => p.name)));
+        parts.push("These balances already include the " + formatMoney(row.sentAmt) + " you paid " + andNames(sentTo.map((p) => p.name)));
       } else {
-        parts.push("You already paid " + formatMoney(row.sentAmt) + " to roommates");
+        parts.push("These balances already include the " + formatMoney(row.sentAmt) + " you paid roommates");
       }
     }
     if (!parts.length) return "";
@@ -818,8 +818,85 @@
         else transfers.push({ from: personA, to: personB, amount: fromCents(-bOwesA) });
       }
     }
-    transfers.sort((x, y) => (y.amount - x.amount) || String(x.from && x.from.name).localeCompare(String(y.from && y.from.name)));
-    return transfers;
+    return cancelDebtCycles(transfers);
+  }
+
+  /* Start from pairwise debts, then repeatedly subtract the smallest edge
+     from every edge in a directed cycle. Never invent a new pair. */
+  function cancelDebtCycles(transfers) {
+    const edges = [];
+    const byKey = new Map();
+    (transfers || []).forEach((t) => {
+      if (!t || !t.from || !t.to) return;
+      const cents = toCents(t.amount);
+      if (cents < 1) return;
+      const key = String(t.from.id) + ">" + String(t.to.id);
+      const prev = byKey.get(key);
+      if (prev) prev.cents += cents;
+      else {
+        const rec = { from: t.from, to: t.to, cents: cents };
+        byKey.set(key, rec);
+        edges.push(rec);
+      }
+    });
+
+    function findCycle() {
+      const adj = new Map();
+      edges.forEach((e) => {
+        if (e.cents < 1) return;
+        if (!adj.has(e.from.id)) adj.set(e.from.id, []);
+        adj.get(e.from.id).push(e);
+      });
+      const visiting = new Set();
+      const visited = new Set();
+      let found = null;
+      function dfs(id, path) {
+        if (found) return;
+        visiting.add(id);
+        path.push(id);
+        (adj.get(id) || []).forEach((e) => {
+          if (found || e.cents < 1) return;
+          const nid = e.to.id;
+          if (visiting.has(nid)) {
+            const start = path.indexOf(nid);
+            if (start >= 0) found = path.slice(start).concat([nid]);
+            return;
+          }
+          if (!visited.has(nid)) dfs(nid, path);
+        });
+        if (found) return;
+        path.pop();
+        visiting.delete(id);
+        visited.add(id);
+      }
+      Array.from(adj.keys()).forEach((id) => {
+        if (!found && !visited.has(id)) dfs(id, []);
+      });
+      return found;
+    }
+
+    let guard = 0;
+    while (guard < 1000) {
+      guard += 1;
+      const cycle = findCycle();
+      if (!cycle || cycle.length < 3) break;
+      const cycEdges = [];
+      let ok = true;
+      for (let i = 0; i < cycle.length - 1; i += 1) {
+        const e = byKey.get(cycle[i] + ">" + cycle[i + 1]);
+        if (!e || e.cents < 1) { ok = false; break; }
+        cycEdges.push(e);
+      }
+      if (!ok || !cycEdges.length) break;
+      const min = Math.min.apply(null, cycEdges.map((e) => e.cents));
+      if (min < 1) break;
+      cycEdges.forEach((e) => { e.cents -= min; });
+    }
+
+    return edges
+      .filter((e) => e.cents >= 1)
+      .map((e) => ({ from: e.from, to: e.to, amount: fromCents(e.cents) }))
+      .sort((a, b) => (b.amount - a.amount) || String(a.from && a.from.name).localeCompare(String(b.from && b.from.name)));
   }
 
   async function loadProfile() {
@@ -3347,7 +3424,7 @@
     client, uid, currentPage, configured,
     getActiveRoomId, setActiveRoomId,
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
-    memberBalances, settleSuggestions, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
+    memberBalances, settleSuggestions, cancelDebtCycles, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
     friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryAvatarHtml, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet, confirmAction, canUndoSettlement, voidSettlement, promptUndoSettlement,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,

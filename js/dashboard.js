@@ -365,7 +365,7 @@
         const periodWord = trip ? "this trip" : "this month";
         sub.innerHTML = hero.direction === "settled"
           ? "No one in this group owes anyone for " + periodWord + "."
-          : "Based on accepted shares for " + periodWord + ". " + MB.infoTip("Settling up means paying what you owe, or collecting what you are owed, so everyone's balance goes back to zero.");
+          : "Based on accepted shares for " + periodWord + ". " + MB.infoTip("Balances cancel out when money goes around in a circle.");
       }
       const heroNote = $("hero-note");
       if (heroNote) {

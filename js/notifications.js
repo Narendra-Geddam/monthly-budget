@@ -8,8 +8,26 @@
   function money(amount) {
     return MB.formatMoney(amount);
   }
+  function clockLabel(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    let h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, "0");
+    const ampm = h >= 12 ? "pm" : "am";
+    h = h % 12 || 12;
+    return h + ":" + m + " " + ampm;
+  }
   function timeLabel(iso) {
-    return (MB.relativeTime ? MB.relativeTime(iso) : "") || "";
+    if (!iso) return "";
+    const key = dayKey(iso);
+    const now = new Date();
+    const today = MB.localDayKey ? MB.localDayKey(now) : "";
+    if (key && today && key === today) return "Today " + clockLabel(iso);
+    const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const yKey = MB.localDayKey ? MB.localDayKey(yest) : "";
+    if (key && yKey && key === yKey) return "Yesterday " + clockLabel(iso);
+    if (MB.friendlyDate && key) return MB.friendlyDate(key);
+    return clockLabel(iso);
   }
   function dayKey(iso) {
     return MB.localDayKey ? MB.localDayKey(iso) : String(iso || "").slice(0, 10);
@@ -277,18 +295,24 @@
     const actions = (view.actions || []).map((a) =>
       `<button type="button" class="${a.kind === "ghost" ? "secondary-btn" : "primary-btn"} notif-action" data-act="${escapeHtml(a.act)}" data-id="${escapeHtml(a.id)}">${escapeHtml(a.label)}</button>`
     ).join("");
-    const state = view.state ? `<p class="notif-state">${escapeHtml(view.sub)}</p>` : (view.sub ? `<div class="item-sub">${escapeHtml(view.sub)}</div>` : "");
+    const time = timeLabel(n.created_at);
+    const timeHtml = time ? `<time class="notif-time" datetime="${escapeHtml(n.created_at || "")}">${escapeHtml(time)}</time>` : "";
+    let subHtml = "";
+    if (view.state) {
+      subHtml = `<p class="notif-state">${escapeHtml(view.sub)}</p>` + (timeHtml ? `<div class="item-sub notif-when">${timeHtml}</div>` : "");
+    } else if (view.sub && timeHtml) {
+      subHtml = `<div class="item-sub">${escapeHtml(view.sub)} · ${timeHtml}</div>`;
+    } else if (view.sub) {
+      subHtml = `<div class="item-sub">${escapeHtml(view.sub)}</div>`;
+    } else if (timeHtml) {
+      subHtml = `<div class="item-sub notif-when">${timeHtml}</div>`;
+    }
     return `<article class="list-item notif-item ${unread ? "is-unread" : ""} ${view.actions.length ? "has-actions" : ""}" data-id="${escapeHtml(n.id)}" data-href="${escapeHtml(view.href || "dashboard.html")}">
-      <span class="activity-avatar notif-avatar">${MB.avatarHtml(view.actor, "md")}<span class="activity-badge is-${escapeHtml(view.kind)}" aria-hidden="true">${badgeSvg(view.kind)}</span></span>
+      <span class="activity-avatar notif-avatar">${MB.avatarHtml(view.actor, "md")}<span class="activity-badge is-${escapeHtml(view.kind)}" aria-hidden="true">${badgeSvg(view.kind)}</span>${unread ? `<span class="notif-dot" title="Unread" aria-label="Unread"></span>` : ""}</span>
       <div class="notif-copy">
         <div class="item-title">${escapeHtml(view.title)}</div>
-        ${view.state ? "" : (view.sub ? `<div class="item-sub">${escapeHtml(view.sub)}</div>` : "")}
-        ${view.state ? state : ""}
+        ${subHtml}
         ${actions ? `<div class="btn-row compact notif-actions">${actions}</div>` : ""}
-      </div>
-      <div class="notif-meta">
-        <time class="notif-time" datetime="${escapeHtml(n.created_at || "")}">${escapeHtml(timeLabel(n.created_at))}</time>
-        ${unread ? `<span class="notif-dot" title="Unread" aria-label="Unread"></span>` : ""}
       </div>
     </article>`;
   }
