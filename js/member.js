@@ -31,18 +31,24 @@
     if (MB.paintBalanceNote) MB.paintBalanceNote("stat-net-note", row);
     const paid = expenses.filter((e) => e && e.paid_by === id);
     $("paid-list").innerHTML = paid.length ? paid.map((e) => `
-      <a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}">
-        <div class="item-icon">${escapeHtml(e.category.slice(0,1))}</div>
-        <div><div class="item-title">${escapeHtml(e.description)}</div><div class="item-sub">${escapeHtml(e.category)} · ${escapeHtml(e.date)}</div></div>
+      <a class="list-item expense-row" href="add-expense.html?id=${escapeHtml(e.id)}">
+        ${MB.categoryAvatarHtml(e.category, "md")}
+        <div class="expense-copy">
+          <div class="item-title">${escapeHtml(e.description)}</div>
+          <div class="item-sub">${escapeHtml(e.category)} · ${escapeHtml(MB.friendlyDate(e.date))}</div>
+        </div>
         <div class="item-amt">${escapeHtml(formatMoney(e.amount))}</div>
       </a>`).join("") : `<p class="empty">No expenses paid this month.</p>`;
     const theirSplits = splits.filter((s) => s.user_id === id && s.status === "accepted");
     $("share-list").innerHTML = theirSplits.length ? theirSplits.map((s) => {
       const e = expenses.find((x) => x.id === s.expense_id);
       if (!e) return "";
-      return `<a class="list-item" href="add-expense.html?id=${escapeHtml(e.id)}">
-        <div class="item-icon">${escapeHtml(e.category.slice(0,1))}</div>
-        <div><div class="item-title">${escapeHtml(e.description)}</div><div class="item-sub">Paid by ${MB.personChip(e.paid_by, members, "sm")}</div></div>
+      return `<a class="list-item expense-row" href="add-expense.html?id=${escapeHtml(e.id)}">
+        ${MB.categoryAvatarHtml(e.category, "md")}
+        <div class="expense-copy">
+          <div class="item-title">${escapeHtml(e.description)}</div>
+          <div class="item-sub">Paid by ${MB.personChip(e.paid_by, members, "sm")}</div>
+        </div>
         <div class="item-amt">${escapeHtml(formatMoney(s.share_amount))}</div>
       </a>`;
     }).join("") : `<p class="empty">No shares this month.</p>`;

@@ -41,7 +41,7 @@
     return location.origin + withBase(file) + extra;
   }
 
-  const MANIFEST_HREF = "manifest.json?v=33";
+  const MANIFEST_HREF = "manifest.json?v=36";
   function registerPwa() {
     try {
       const manifestHref = withBase(MANIFEST_HREF);
@@ -234,6 +234,11 @@
     Subscriptions: "#818CF8",
     Entertainment: "#F472B6",
     Other: "#94A3B8",
+    Salary: "#34D399",
+    Freelance: "#38BDF8",
+    Refund: "#FBBF24",
+    Gift: "#F472B6",
+    Interest: "#818CF8",
   };
   const CAT_ICONS = {
     Rent: "🏠",
@@ -267,6 +272,11 @@
     Subscriptions: "📺",
     Entertainment: "🎭",
     Other: "📦",
+    Salary: "💼",
+    Freelance: "💻",
+    Refund: "🧾",
+    Gift: "🎁",
+    Interest: "📈",
   };
   const CURRENCIES = [
     { code: "INR", symbol: "₹", locale: "en-IN" },
@@ -1045,9 +1055,18 @@
   function categoryIcon(name) {
     return CAT_ICONS[name] || CAT_ICONS.Other || "📦";
   }
-  function categoryChip(name) {
+  function categoryAvatarHtml(name, size) {
     const color = colorForCategory(name);
-    return `<span class="cat-chip" style="--cat:${escapeHtml(color)}"><span class="cat-ico" aria-hidden="true">${categoryIcon(name)}</span>${escapeHtml(name || "Other")}</span>`;
+    const klass = size ? "cat-avatar cat-avatar-" + size : "cat-avatar";
+    return `<span class="${klass}" style="--cat:${escapeHtml(color)}" aria-hidden="true">${categoryIcon(name)}</span>`;
+  }
+  function categoryChip(name, opts) {
+    const color = colorForCategory(name);
+    const label = escapeHtml(name || "Other");
+    if (opts && (opts.plain || opts.noIcon)) {
+      return `<span class="cat-chip is-plain" style="--cat:${escapeHtml(color)}">${label}</span>`;
+    }
+    return `<span class="cat-chip" style="--cat:${escapeHtml(color)}"><span class="cat-ico" aria-hidden="true">${categoryIcon(name)}</span>${label}</span>`;
   }
   function infoTip(text) {
     return `<span class="info-tip"><button type="button" class="info-tip-btn" aria-label="What this means" aria-expanded="false"><span aria-hidden="true">i</span></button><span class="info-tip-pop" hidden role="tooltip">${escapeHtml(text)}</span></span>`;
@@ -3278,7 +3297,7 @@
     loadRooms, loadMembers, loadMonthData, loadProfile, resolveActiveRoom,
     memberBalances, settleSuggestions, myTransfers, pendingSettlementFor, oweRowHtml, displayName, netLabel,
     acceptedSplits, splitStatusLabel, splitStatusKey, splitStatusSummary, statusChip,
-    friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet, confirmAction, canUndoSettlement, voidSettlement, promptUndoSettlement,
+    friendlyDate, firstName, relativeTime, formatDateIN, enhanceDateFields, daysLeftInMonth, categoryIcon, categoryAvatarHtml, categoryChip, infoTip, bindInfoTips, closeInfoTip, emptyState, openActionSheet, closeActionSheet, confirmAction, canUndoSettlement, voidSettlement, promptUndoSettlement,
     memberNetChip, balanceHeadline, remindWhatsAppHref, monthSpendSentence, expenseRowHtml, balanceFootnote, paintBalanceNote, personChip, memberRecord, avatarHue, avatarSwatch, avatarSize, avatarHtml,
     renderOnboardingTip,
     loadPendingRequests, respondToShare, pendingWithExpense, renderPendingItems, setPendingBadge, balanceFootnote, shareStatCaption,

@@ -2598,3 +2598,40 @@ html[data-theme="light"] .status-pill.is-paid { color: var(--getback); backgroun
   background: transparent; border: 0;
 }
 .hero-settle-link:hover { text-decoration: underline; }
+
+
+/* ===== v36 category avatars in lists ===== */
+.cat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  font-size: 1.05rem;
+  line-height: 1;
+  font-weight: 400;
+  border: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--cat, var(--accent)) 26%, var(--surface-2));
+  color: var(--text);
+}
+.cat-avatar-sm { width: 24px; height: 24px; flex-basis: 24px; font-size: 0.85rem; }
+.cat-avatar-md { width: 32px; height: 32px; flex-basis: 32px; font-size: 1.05rem; }
+.cat-avatar-lg { width: 40px; height: 40px; flex-basis: 40px; font-size: 1.2rem; }
+.list-item.expense-row > .cat-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 1.05rem;
+}
+.cat-chip.is-plain {
+  padding: 1px 7px;
+  gap: 0;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--cat, var(--accent)) 12%, transparent);
+}
+html[data-theme="light"] .cat-avatar {
+  background: color-mix(in srgb, var(--cat, var(--accent)) 20%, var(--surface));
+}

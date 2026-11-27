@@ -116,15 +116,20 @@
       location.reload();
     });
 
-    $("tx-list").innerHTML = rows.length ? rows.map((r) => `
-      <a class="list-item" href="add-expense.html?mode=personal&id=${escapeHtml(r.id)}">
-        <div class="item-icon">${escapeHtml((r.category || "?").slice(0, 1))}</div>
-        <div>
+    $("tx-list").innerHTML = rows.length ? rows.map((r) => {
+      const typeBit = r.type === "income" ? " · income" : "";
+      const avatar = (MB.categoryAvatarHtml || function (name) { return `<span class="cat-avatar" aria-hidden="true">${MB.categoryIcon(name)}</span>`; })(r.category, "md");
+      const chip = MB.categoryChip(r.category, { plain: true });
+      return `
+      <a class="list-item expense-row" href="add-expense.html?mode=personal&id=${escapeHtml(r.id)}">
+        ${avatar}
+        <div class="expense-copy">
           <div class="item-title">${escapeHtml(r.note || r.category)}</div>
-          <div class="item-sub">${MB.categoryChip(r.category)} · ${escapeHtml(MB.friendlyDate(r.date))} · ${escapeHtml(r.type)}</div>
+          <div class="item-sub">${chip} · ${escapeHtml(MB.friendlyDate(r.date))}${typeBit}</div>
         </div>
         <div class="item-amt ${r.type === "income" ? "pos" : "neg"}">${r.type === "income" ? "+" : "−"}${escapeHtml(formatMoney(r.amount))}</div>
-      </a>`).join("") : MB.emptyState({ art: "images/illu-piggy.webp", title: "Your money, just for you", text: "Add a private expense or income — roommates will never see these.", href: "add-expense.html?mode=personal", cta: "Add a personal entry" });
+      </a>`;
+    }).join("") : MB.emptyState({ art: "images/illu-piggy.webp", title: "Your money, just for you", text: "Add a private expense or income — roommates will never see these.", href: "add-expense.html?mode=personal", cta: "Add a personal entry" });
   }
   (MB.runPage ? MB.runPage(main) : main().catch((err) => { console.error(err); MB.showPageError(MB.errorMessage(err)); }));
 })();
